@@ -5495,6 +5495,18 @@
               }
             },
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "ZkLogin"
+            ],
+            "properties": {
+              "ZkLogin": {
+                "$ref": "#/components/schemas/ZkLoginAuthenticator"
+              }
+            },
+            "additionalProperties": false
           }
         ]
       },
@@ -7778,6 +7790,18 @@
             "properties": {
               "Secp256r1": {
                 "$ref": "#/components/schemas/Base64"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "ZkLogin"
+            ],
+            "properties": {
+              "ZkLogin": {
+                "$ref": "#/components/schemas/ZkLoginPublicIdentifier"
               }
             },
             "additionalProperties": false
@@ -10696,6 +10720,15 @@
               "type": "string"
             }
           }
+        }
+      },
+      "ZkLoginPublicIdentifier": {
+        "description": "A wrapper struct to retrofit in [enum PublicKey] for zkLogin. Useful to construct [struct MultiSigPublicKey].",
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
         }
       }
     }

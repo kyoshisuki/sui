@@ -294,7 +294,7 @@ impl TestTransactionBuilder {
 
         let mut signatures = Vec::with_capacity(signers.len());
         for signer in signers {
-            signatures.push(Signature::new_secure(&intent_msg, *signer));
+            signatures.push(Signature::new_secure(&intent_msg, *signer).into());
         }
 
         let multisig =
@@ -314,7 +314,7 @@ impl TestTransactionBuilder {
 
         let mut signatures = Vec::with_capacity(signers.len());
         for signer in signers {
-            signatures.push(Signature::new_secure(&intent_msg, *signer));
+            signatures.push(Signature::new_secure(&intent_msg, *signer).into());
         }
 
         let multisig = GenericSignature::MultiSigLegacy(
