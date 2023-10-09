@@ -1334,3 +1334,4 @@ type ValidatorSet {
 schema {
 	query: Query
 }
+
