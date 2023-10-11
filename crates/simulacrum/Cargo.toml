@@ -16,6 +16,7 @@ once_cell.workspace = true
 rand.workspace = true
 serde.workspace = true
 tracing.workspace = true
+tokio.workspace = true
 prometheus.workspace = true
 
 move-bytecode-utils.workspace = true
@@ -29,6 +30,7 @@ sui-storage.workspace = true
 sui-types.workspace = true
 sui-genesis-builder.workspace = true
 sui-execution.workspace = true
+sui-rest-api.workspace = true
 sui-swarm-config.workspace = true
 sui-transaction-checks.workspace = true
 workspace-hack.workspace = true

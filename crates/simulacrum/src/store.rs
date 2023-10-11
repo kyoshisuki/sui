@@ -13,7 +13,7 @@ use sui_types::{
     crypto::{AccountKeyPair, AuthorityKeyPair},
     digests::{ObjectDigest, TransactionDigest, TransactionEventsDigest},
     effects::{TransactionEffects, TransactionEffectsAPI, TransactionEvents},
-    error::SuiError,
+    error::{SuiError, SuiResult},
     messages_checkpoint::{
         CheckpointContents, CheckpointContentsDigest, CheckpointDigest, CheckpointSequenceNumber,
         VerifiedCheckpoint,
@@ -239,10 +239,7 @@ impl InMemoryStore {
 }
 
 impl BackingPackageStore for InMemoryStore {
-    fn get_package_object(
-        &self,
-        package_id: &ObjectID,
-    ) -> sui_types::error::SuiResult<Option<Object>> {
+    fn get_package_object(&self, package_id: &ObjectID) -> SuiResult<Option<Object>> {
         Ok(self.get_object(package_id).cloned())
     }
 }
@@ -253,7 +250,7 @@ impl ChildObjectResolver for InMemoryStore {
         parent: &ObjectID,
         child: &ObjectID,
         child_version_upper_bound: SequenceNumber,
-    ) -> sui_types::error::SuiResult<Option<Object>> {
+    ) -> SuiResult<Option<Object>> {
         let child_object = match self.get_object(child).cloned() {
             None => return Ok(None),
             Some(obj) => obj,
@@ -284,7 +281,7 @@ impl ChildObjectResolver for InMemoryStore {
         receiving_object_id: &ObjectID,
         receive_object_at_version: SequenceNumber,
         _epoch_id: EpochId,
-    ) -> sui_types::error::SuiResult<Option<Object>> {
+    ) -> SuiResult<Option<Object>> {
         let recv_object = match self.get_object(receiving_object_id).cloned() {
             None => return Ok(None),
             Some(obj) => obj,
@@ -361,7 +358,7 @@ impl ParentSync for InMemoryStore {
     fn get_latest_parent_entry_ref_deprecated(
         &self,
         _object_id: ObjectID,
-    ) -> sui_types::error::SuiResult<Option<sui_types::base_types::ObjectRef>> {
+    ) -> SuiResult<Option<sui_types::base_types::ObjectRef>> {
         panic!("Never called in newer protocol versions")
     }
 }

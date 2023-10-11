@@ -6,7 +6,7 @@ use axum::{http::StatusCode, routing::get, Router};
 mod checkpoints;
 mod client;
 pub mod headers;
-mod node_state_getter;
+pub mod node_state_getter;
 mod objects;
 
 pub use checkpoints::{CheckpointData, CheckpointTransaction};
@@ -76,9 +76,9 @@ pub fn rest_router(state: std::sync::Arc<dyn NodeStateGetter>) -> Router {
 pub async fn start_service(
     socket_address: std::net::SocketAddr,
     state: std::sync::Arc<dyn NodeStateGetter>,
+    base_path: String,
 ) {
-    let app = rest_router(state);
-
+    let app = Router::new().nest(&base_path, rest_router(state));
     axum::Server::bind(&socket_address)
         .serve(app.into_make_service())
         .await

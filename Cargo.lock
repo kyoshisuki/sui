@@ -9368,10 +9368,12 @@ dependencies = [
  "sui-genesis-builder",
  "sui-keys",
  "sui-protocol-config",
+ "sui-rest-api",
  "sui-storage",
  "sui-swarm-config",
  "sui-transaction-checks",
  "sui-types",
+ "tokio",
  "tracing",
  "workspace-hack",
 ]
