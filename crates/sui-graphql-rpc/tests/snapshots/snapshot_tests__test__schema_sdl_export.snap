@@ -17,7 +17,8 @@ type Address implements ObjectOwner {
 	The `0x3::staking_pool::StakedSui` objects owned by the given address.
 	"""
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
-	defaultNameServiceName: String
+	defaultNameServiceName: String	
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
 }
 
 enum AddressTransactionBlockRelationship {
@@ -229,6 +230,54 @@ type ConsensusCommitPrologueTransaction {
 }
 
 scalar DateTime
+
+type DynamicField {
+	name: MoveValue
+	id: ID!
+	value: DynamicFieldValue
+}
+
+type DynamicFieldConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [DynamicFieldEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [DynamicField!]!
+}
+
+"""
+An edge in a connection.
+"""
+type DynamicFieldEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: DynamicField!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input DynamicFieldFilter {
+	namePackage: SuiAddress
+	nameModule: String
+	nameType: String
+}
+
+input DynamicFieldName {
+	type: String!
+	bcs: Base64!
+}
+
+union DynamicFieldValue = MoveObject | MoveValue
 
 type EndOfEpochData {
 	newCommittee: [CommitteeMember!]
@@ -659,6 +708,7 @@ type Object implements ObjectOwner {
 	"""
 	The address of the object, named as such to avoid conflict with the address type.
 	"""
+	dynamicField(dynamicFieldName: DynamicFieldName!): DynamicField
 	location: SuiAddress!
 	"""
 	The objects owned by this object
@@ -683,7 +733,8 @@ type Object implements ObjectOwner {
 	"""
 	The domain that a user address has explicitly configured as their default domain
 	"""
-	defaultNameServiceName: String
+	defaultNameServiceName: String	
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
 }
 
 type ObjectChange {
@@ -750,7 +801,8 @@ interface ObjectOwner {
 	balanceConnection(first: Int, after: String, last: Int, before: String): BalanceConnection
 	coinConnection(first: Int, after: String, last: Int, before: String, type: String): CoinConnection
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
-	defaultNameServiceName: String
+	defaultNameServiceName: String	
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
 }
 
 type Owner implements ObjectOwner {
@@ -765,7 +817,8 @@ type Owner implements ObjectOwner {
 	The stake objects for the given address
 	"""
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
-	defaultNameServiceName: String
+	defaultNameServiceName: String	
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
 }
 
 """

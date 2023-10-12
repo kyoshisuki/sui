@@ -13,6 +13,7 @@ use crate::{
         committee_member::CommitteeMember,
         date_time::DateTime,
         digest::Digest,
+        dynamic_field::DynamicField,
         end_of_epoch_data::EndOfEpochData,
         epoch::Epoch,
         event::{Event, EventFilter},
@@ -21,6 +22,7 @@ use crate::{
         move_object::MoveObject,
         move_package::MovePackage,
         move_type::MoveType,
+        move_value::MoveValue,
         object::{Object, ObjectFilter, ObjectKind},
         protocol_config::{ProtocolConfigAttr, ProtocolConfigFeatureFlag, ProtocolConfigs},
         safe_mode::SafeMode,
@@ -49,7 +51,7 @@ use diesel::{
     query_builder::{AstPass, BoxedSelectStatement, FromClause, QueryFragment, QueryId},
     sql_types::Text,
     BoolExpressionMethods, ExpressionMethods, OptionalExtension, PgConnection, QueryDsl,
-    QueryResult, RunQueryDsl,
+    QueryResult, RunQueryDsl, TextExpressionMethods,
 };
 use move_core_types::language_storage::StructTag;
 use std::str::FromStr;
@@ -88,10 +90,13 @@ use sui_sdk::types::{
         GenesisObject, SenderSignedData, TransactionDataAPI, TransactionExpiration, TransactionKind,
     },
 };
-use sui_types::{base_types::MoveObjectType, governance::StakedSui};
 use sui_types::{
-    base_types::ObjectID, digests::TransactionDigest, dynamic_field::Field, event::EventID,
-    Identifier,
+    base_types::{MoveObjectType, ObjectID},
+    digests::TransactionDigest,
+    dynamic_field::{DynamicFieldType as SuiDynamicFieldType, Field},
+    event::EventID,
+    governance::StakedSui,
+    Identifier, TypeTag,
 };
 
 use super::DEFAULT_PAGE_SIZE;
@@ -1647,6 +1652,65 @@ impl PgManager {
         } else {
             Err(Error::InvalidFilter)
         }
+    }
+
+    pub(crate) async fn fetch_dynamic_fields(
+        &self,
+        first: Option<u64>,
+        after: Option<String>,
+        last: Option<u64>,
+        before: Option<String>,
+        address: SuiAddress,
+    ) -> Result<Option<Connection<String, DynamicField>>, Error> {
+        let filter = ObjectFilter {
+            owner: Some(address),
+            ..Default::default()
+        };
+
+        let objs = self
+            .multi_get_objs(
+                first,
+                after,
+                last,
+                before,
+                Some(filter),
+                Some(OwnerType::Object),
+            )
+            .await?;
+
+        self.inner
+            .spawn_blocking(move |this| {
+                if let Some((stored_objs, has_next_page)) = objs {
+                    let mut connection = Connection::new(false, has_next_page);
+
+                    // Let's not use try_into_expectant_dynamic_field_info
+                    // pass native object in directly?
+
+                    for stored_obj in stored_objs {
+                        let dynamic_field =
+                            stored_obj.try_into_expectant_dynamic_field_info(&this)?;
+                        let is_dof = match dynamic_field.type_ {
+                            SuiDynamicFieldType::DynamicField => false,
+                            SuiDynamicFieldType::DynamicObject => true,
+                        };
+                        connection.edges.push(Edge::new(
+                            SuiAddress::from_array(**dynamic_field.object_id).to_string(),
+                            DynamicField {
+                                name: Some(MoveValue::new(
+                                    dynamic_field.name.type_.to_string(),
+                                    Base64::from(dynamic_field.bcs_name),
+                                )),
+                                id: SuiAddress::from_array(**dynamic_field.object_id),
+                                is_dof,
+                            },
+                        ));
+                    }
+
+                    return Ok(Some(connection));
+                }
+                Ok(None)
+            })
+            .await
     }
 }
 

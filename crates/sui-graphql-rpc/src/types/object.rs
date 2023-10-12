@@ -7,6 +7,7 @@ use sui_json_rpc::name_service::NameServiceConfig;
 use super::big_int::BigInt;
 use super::digest::Digest;
 use super::move_object::MoveObject;
+use super::dynamic_field::{DynamicField, DynamicFieldName};
 use super::move_package::MovePackage;
 use super::{
     balance::Balance, coin::Coin, owner::Owner, stake::Stake, sui_address::SuiAddress,
@@ -149,6 +150,14 @@ impl Object {
         )
     }
 
+    pub async fn dynamic_field(
+        &self,
+        ctx: &Context<'_>,
+        dynamic_field_name: DynamicFieldName,
+    ) -> Result<Option<DynamicField>> {
+        unimplemented!()
+    }
+
     // =========== Owner interface methods =============
 
     /// The address of the object, named as such to avoid conflict with the address type.
@@ -249,6 +258,20 @@ impl Object {
     // ) -> Result<Option<Connection<String, NameService>>> {
     //     unimplemented!()
     // }
+    
+    pub async fn dynamic_field_connection(
+        &self,
+        ctx: &Context<'_>,
+        first: Option<u64>,
+        after: Option<String>,
+        last: Option<u64>,
+        before: Option<String>,
+    ) -> Result<Option<Connection<String, DynamicField>>> {
+        ctx.data_unchecked::<PgManager>()
+            .fetch_dynamic_fields(first, after, last, before, self.address)
+            .await
+            .extend()
+    }
 }
 
 impl From<&NativeSuiObject> for Object {
