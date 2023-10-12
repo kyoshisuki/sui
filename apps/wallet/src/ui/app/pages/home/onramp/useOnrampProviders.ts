@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { growthbook } from '_src/ui/app/experimentation/feature-gating';
+import { generateOnRampURL } from '@coinbase/cbpay-js';
 import { useFeatureIsOn } from '@growthbook/growthbook-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import Coinbase from './icons/Coinbase.svg';
 import MoonPay from './icons/MoonPay.svg';
 import Transak from './icons/Transak.svg';
 import { type OnrampProvider } from './types';
@@ -24,6 +26,22 @@ const BACKEND_HOST =
 	process.env.NODE_ENV === 'production' ? 'https://apps-backend.sui.io' : 'http://localhost:3003';
 
 const ONRAMP_PROVIDER: OnrampProvider[] = [
+	{
+		key: 'coinbase',
+		icon: Coinbase,
+		name: 'Coinbase Pay',
+		checkSupported: async () => {
+			const isOn = await growthbook.getFeatureValue('wallet-onramp-coinbase', true);
+			return isOn;
+		},
+		getUrl: async (address) => {
+			const url = generateOnRampURL({
+				appId: '1dbd2a0b94',
+				destinationWallets: [{ address, assets: ['SUI'] }],
+			});
+			return url;
+		},
+	},
 	{
 		key: 'transak',
 		icon: Transak,
