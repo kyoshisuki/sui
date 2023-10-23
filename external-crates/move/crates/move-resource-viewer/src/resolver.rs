@@ -11,7 +11,7 @@ use move_binary_format::{
     access::ModuleAccess,
     errors::PartialVMError,
     file_format::{
-        SignatureToken, StructDefinitionIndex, StructFieldInformation, StructHandleIndex,
+        DataTypeHandleIndex, SignatureToken, StructDefinitionIndex, StructFieldInformation,
     },
     views::FunctionHandleView,
     CompiledModule,
@@ -156,10 +156,10 @@ impl<'a, T: MoveResolver + ?Sized> Resolver<'a, T> {
             SignatureToken::Vector(ty) => {
                 FatType::Vector(Box::new(self.resolve_signature(module, ty)?))
             }
-            SignatureToken::Struct(idx) => {
+            SignatureToken::DataType(idx) => {
                 FatType::Struct(Box::new(self.resolve_struct_handle(module, *idx)?))
             }
-            SignatureToken::StructInstantiation(idx, toks) => {
+            SignatureToken::DataTypeInstantiation(idx, toks) => {
                 let struct_ty = self.resolve_struct_handle(module.clone(), *idx)?;
                 let args = toks
                     .iter()
@@ -183,9 +183,9 @@ impl<'a, T: MoveResolver + ?Sized> Resolver<'a, T> {
     fn resolve_struct_handle(
         &self,
         module: Rc<CompiledModule>,
-        idx: StructHandleIndex,
+        idx: DataTypeHandleIndex,
     ) -> Result<FatStructType> {
-        let struct_handle = module.struct_handle_at(idx);
+        let struct_handle = module.data_type_handle_at(idx);
         let target_module = {
             let module_handle = module.module_handle_at(struct_handle.module);
             self.get_module(
@@ -206,7 +206,7 @@ impl<'a, T: MoveResolver + ?Sized> Resolver<'a, T> {
         idx: StructDefinitionIndex,
     ) -> Result<FatStructType> {
         let struct_def = module.struct_def_at(idx);
-        let struct_handle = module.struct_handle_at(struct_def.struct_handle);
+        let struct_handle = module.data_type_handle_at(struct_def.struct_handle);
         let address = *module.address();
         let module_name = module.name().to_owned();
         let name = module.identifier_at(struct_handle.name).to_owned();
@@ -236,7 +236,7 @@ fn find_struct_def_in_module(
     name: &IdentStr,
 ) -> Result<StructDefinitionIndex> {
     for (i, defs) in module.struct_defs().iter().enumerate() {
-        let st_handle = module.struct_handle_at(defs.struct_handle);
+        let st_handle = module.data_type_handle_at(defs.struct_handle);
         if module.identifier_at(st_handle.name) == name {
             return Ok(StructDefinitionIndex::new(i as u16));
         }

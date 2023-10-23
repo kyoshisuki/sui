@@ -1,8 +1,10 @@
 processed 4 tasks
 
 task 0 'print-bytecode'. lines 1-22:
-// Move bytecode v6
+// Move bytecode v7
 script {
+
+
 
 
 main() {
@@ -24,12 +26,15 @@ B3:
 	10: Branch(11)
 B4:
 	11: Ret
+
 }
 }
 
 task 1 'print-bytecode'. lines 24-41:
-// Move bytecode v6
+// Move bytecode v7
 script {
+
+
 
 
 main() {
@@ -48,12 +53,15 @@ B2:
 	8: StLoc[0](loc0: u64)
 B3:
 	9: Ret
+
 }
 }
 
 task 2 'print-bytecode'. lines 43-59:
-// Move bytecode v6
+// Move bytecode v7
 script {
+
+
 
 
 main() {
@@ -81,12 +89,15 @@ B4:
 	15: StLoc[0](loc0: u64)
 B5:
 	16: Ret
+
 }
 }
 
 task 3 'print-bytecode'. lines 61-74:
-// Move bytecode v6
+// Move bytecode v7
 script {
+
+
 
 
 main() {
@@ -106,5 +117,6 @@ B2:
 	9: Ret
 B3:
 	10: Ret
+
 }
 }

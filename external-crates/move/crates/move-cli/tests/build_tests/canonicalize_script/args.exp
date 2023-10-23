@@ -1,10 +1,12 @@
 Command `disassemble --Xdebug --name main`:
-// Move bytecode v6
+// Move bytecode v7
 script {
 use 0000000000000000000000000000000000000000000000000000000000000002::b;
 use 0000000000000000000000000000000000000000000000000000000000000003::c;
 use 0000000000000000000000000000000000000000000000000000000000000001::a;
 use 0000000000000000000000000000000000000000000000000000000000000004::d;
+
+
 
 
 
@@ -38,11 +40,12 @@ B2:
 	20: Abort
 B3:
 	21: Ret
+
 }
 }
 
 CompiledScript {
-    version: 6,
+    version: 7,
     module_handles: [
         ModuleHandle {
             address: AddressIdentifierIndex(1),
@@ -61,14 +64,14 @@ CompiledScript {
             name: IdentifierIndex(5),
         },
     ],
-    struct_handles: [
-        StructHandle {
+    data_type_handles: [
+        DataTypeHandle {
             module: ModuleHandleIndex(3),
             name: IdentifierIndex(0),
             abilities: [Drop, ],
             type_parameters: [],
         },
-        StructHandle {
+        DataTypeHandle {
             module: ModuleHandleIndex(3),
             name: IdentifierIndex(1),
             abilities: [Drop, ],
@@ -133,18 +136,18 @@ CompiledScript {
         ),
         Signature(
             [
-                Struct(StructHandleIndex(0)),
-                Struct(StructHandleIndex(1)),
+                Struct(DataTypeHandleIndex(0)),
+                Struct(DataTypeHandleIndex(1)),
             ],
         ),
         Signature(
             [
-                Struct(StructHandleIndex(0)),
+                Struct(DataTypeHandleIndex(0)),
             ],
         ),
         Signature(
             [
-                Struct(StructHandleIndex(1)),
+                Struct(DataTypeHandleIndex(1)),
             ],
         ),
         Signature(
@@ -213,6 +216,7 @@ CompiledScript {
             Abort,
             Ret,
         ],
+        jump_tables: [],
     },
     type_parameters: [],
     parameters: SignatureIndex(0),

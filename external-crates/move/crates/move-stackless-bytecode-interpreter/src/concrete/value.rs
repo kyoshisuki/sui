@@ -15,7 +15,7 @@ use move_core_types::{
     account_address::AccountAddress,
     effects::{ChangeSet, Op},
     u256,
-    value::{MoveStruct, MoveValue},
+    value::{MoveDataType, MoveValue},
 };
 use move_model::ast::{MemoryLabel, TempIndex};
 
@@ -986,7 +986,7 @@ impl TypedValue {
                         full_field.into_move_value()
                     })
                     .collect();
-                MoveValue::Struct(MoveStruct::new(move_fields))
+                MoveValue::DataType(MoveDataType::new(move_fields))
             }
         }
     }

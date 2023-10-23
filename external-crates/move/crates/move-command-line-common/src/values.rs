@@ -8,8 +8,8 @@ use crate::{
 use anyhow::bail;
 use move_core_types::{
     account_address::AccountAddress,
-    identifier::{self},
-    value::{MoveStruct, MoveValue},
+    identifier,
+    value::{MoveDataType, MoveValue},
 };
 use std::fmt::{self, Display};
 
@@ -83,7 +83,7 @@ impl ParsableValue for () {
     }
 
     fn concrete_struct(values: Vec<Self::ConcreteValue>) -> anyhow::Result<Self::ConcreteValue> {
-        Ok(MoveValue::Struct(MoveStruct::Runtime(values)))
+        Ok(MoveValue::DataType(MoveDataType::Runtime(values)))
     }
     fn into_concrete_value(
         self,

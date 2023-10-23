@@ -251,7 +251,7 @@ pub fn convert_move_value(val: &MoveValue, ty: &BaseType) -> PartialVMResult<Typ
                 .collect::<PartialVMResult<Vec<_>>>()?;
             TypedValue::mk_vector(*elem.clone(), converted)
         }
-        (MoveValue::Struct(v), BaseType::Struct(inst)) => {
+        (MoveValue::DataType(v), BaseType::Struct(inst)) => {
             let fields = v.fields();
             if fields.len() != inst.fields.len() {
                 return Err(PartialVMError::new(StatusCode::TYPE_MISMATCH));

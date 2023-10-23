@@ -61,11 +61,11 @@ fn test_function_handle_type_instantiation() {
 #[test]
 fn test_struct_handle_type_instantiation() {
     let mut m = basic_test_module();
-    m.struct_handles.push(StructHandle {
+    m.data_type_handles.push(DataTypeHandle {
         module: ModuleHandleIndex::new(0),
         name: IdentifierIndex::new(0),
         abilities: AbilitySet::ALL,
-        type_parameters: std::iter::repeat(StructTypeParameter {
+        type_parameters: std::iter::repeat(DataTypeTyParameter {
             constraints: AbilitySet::ALL,
             is_phantom: false,
         })
@@ -87,11 +87,11 @@ fn test_struct_handle_type_instantiation() {
     );
 
     let mut s = basic_test_script();
-    s.struct_handles.push(StructHandle {
+    s.data_type_handles.push(DataTypeHandle {
         module: ModuleHandleIndex::new(0),
         name: IdentifierIndex::new(0),
         abilities: AbilitySet::ALL,
-        type_parameters: std::iter::repeat(StructTypeParameter {
+        type_parameters: std::iter::repeat(DataTypeTyParameter {
             constraints: AbilitySet::ALL,
             is_phantom: false,
         })
@@ -171,7 +171,7 @@ fn big_vec_unpacks() {
     const N_TYPE_PARAMS: usize = 16;
     let mut st = SignatureToken::Vector(Box::new(SignatureToken::U8));
     let type_params = vec![st; N_TYPE_PARAMS];
-    st = SignatureToken::StructInstantiation(StructHandleIndex(0), type_params);
+    st = SignatureToken::DataTypeInstantiation(DataTypeHandleIndex(0), type_params);
     const N_VEC_PUSH: u16 = 1000;
     let mut code = vec![];
     // 1. CopyLoc:     ...         -> ... st
@@ -189,7 +189,7 @@ fn big_vec_unpacks() {
         code.push(Bytecode::Pop);
     }
     code.push(Bytecode::Ret);
-    let type_param_constraints = StructTypeParameter {
+    let type_param_constraints = DataTypeTyParameter {
         constraints: AbilitySet::EMPTY,
         is_phantom: false,
     };
@@ -200,7 +200,7 @@ fn big_vec_unpacks() {
             address: AddressIdentifierIndex(0),
             name: IdentifierIndex(0),
         }],
-        struct_handles: vec![StructHandle {
+        data_type_handles: vec![DataTypeHandle {
             module: ModuleHandleIndex(0),
             name: IdentifierIndex(1),
             abilities: AbilitySet::ALL,
@@ -227,7 +227,7 @@ fn big_vec_unpacks() {
         constant_pool: vec![],
         metadata: vec![],
         struct_defs: vec![StructDefinition {
-            struct_handle: StructHandleIndex(0),
+            struct_handle: DataTypeHandleIndex(0),
             field_information: StructFieldInformation::Native,
         }],
         function_defs: vec![FunctionDefinition {
@@ -238,8 +238,11 @@ fn big_vec_unpacks() {
             code: Some(CodeUnit {
                 locals: SignatureIndex(0),
                 code,
+                jump_tables: vec![],
             }),
         }],
+        enum_defs: vec![],
+        enum_def_instantiations: vec![],
     };
 
     // save module and verify that it can ser/de
@@ -814,14 +817,14 @@ fn multi_struct(module: &mut CompiledModule, count: usize) {
         module
             .identifiers
             .push(Identifier::new(format!("A_{}", i)).unwrap());
-        module.struct_handles.push(StructHandle {
+        module.data_type_handles.push(DataTypeHandle {
             module: module.self_module_handle_idx,
             name: IdentifierIndex((module.identifiers.len() - 1) as u16),
             abilities: AbilitySet::EMPTY,
             type_parameters: vec![],
         });
         module.struct_defs.push(StructDefinition {
-            struct_handle: StructHandleIndex((module.struct_handles.len() - 1) as u16),
+            struct_handle: DataTypeHandleIndex((module.data_type_handles.len() - 1) as u16),
             field_information: StructFieldInformation::Declared(vec![]),
         });
     }
@@ -881,6 +884,7 @@ fn multi_functions(module: &mut CompiledModule, count: usize) {
             code: Some(CodeUnit {
                 locals: SignatureIndex((module.signatures.len() - 1) as u16),
                 code: vec![Bytecode::Ret],
+                jump_tables: vec![],
             }),
         });
     }

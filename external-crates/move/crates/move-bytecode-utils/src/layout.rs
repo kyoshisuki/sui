@@ -6,7 +6,7 @@ use crate::module_cache::GetModule;
 use anyhow::{anyhow, bail, Result};
 use move_binary_format::{
     access::ModuleAccess,
-    file_format::{SignatureToken, StructDefinition, StructFieldInformation, StructHandleIndex},
+    file_format::{DataTypeHandleIndex, SignatureToken, StructDefinition, StructFieldInformation},
     normalized::{Struct, Type},
     CompiledModule,
 };
@@ -14,7 +14,7 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, StructTag, TypeTag},
-    value::{MoveFieldLayout, MoveStructLayout, MoveTypeLayout},
+    value::{MoveDataTypeLayout, MoveFieldLayout, MoveTypeLayout},
 };
 use serde_reflection::{ContainerFormat, Format, Named, Registry};
 use std::{
@@ -408,7 +408,7 @@ impl TypeLayoutBuilder {
                 layout_type,
                 depth + 1,
             )?)),
-            Struct(shi) => MoveTypeLayout::Struct(StructLayoutBuilder::build_from_handle_idx(
+            DataType(shi) => MoveTypeLayout::Struct(StructLayoutBuilder::build_from_handle_idx(
                 m,
                 *shi,
                 vec![],
@@ -416,7 +416,7 @@ impl TypeLayoutBuilder {
                 layout_type,
                 depth + 1,
             )?),
-            StructInstantiation(shi, type_actuals) => {
+            DataTypeInstantiation(shi, type_actuals) => {
                 let actual_layouts = type_actuals
                     .iter()
                     .map(|t| {
@@ -455,11 +455,14 @@ impl TypeLayoutBuilder {
 }
 
 impl StructLayoutBuilder {
-    pub fn build_runtime(s: &StructTag, resolver: &impl GetModule) -> Result<MoveStructLayout> {
+    pub fn build_runtime(s: &StructTag, resolver: &impl GetModule) -> Result<MoveDataTypeLayout> {
         Self::build(s, resolver, LayoutType::Runtime, 0)
     }
 
-    pub fn build_with_fields(s: &StructTag, resolver: &impl GetModule) -> Result<MoveStructLayout> {
+    pub fn build_with_fields(
+        s: &StructTag,
+        resolver: &impl GetModule,
+    ) -> Result<MoveDataTypeLayout> {
         Self::build(s, resolver, LayoutType::WithFields, 0)
     }
 
@@ -471,7 +474,7 @@ impl StructLayoutBuilder {
         resolver: &impl GetModule,
         layout_type: LayoutType,
         depth: u64,
-    ) -> Result<MoveStructLayout> {
+    ) -> Result<MoveDataTypeLayout> {
         check_depth!(depth);
         let type_arguments = s
             .type_params
@@ -495,9 +498,9 @@ impl StructLayoutBuilder {
         resolver: &impl GetModule,
         layout_type: LayoutType,
         depth: u64,
-    ) -> Result<MoveStructLayout> {
+    ) -> Result<MoveDataTypeLayout> {
         check_depth!(depth);
-        let s_handle = m.struct_handle_at(s.struct_handle);
+        let s_handle = m.data_type_handle_at(s.struct_handle);
         if s_handle.type_parameters.len() != type_arguments.len() {
             bail!("Wrong number of type arguments for struct")
         }
@@ -520,8 +523,8 @@ impl StructLayoutBuilder {
                     })
                     .collect::<Result<Vec<MoveTypeLayout>>>()?;
                 Ok(match layout_type {
-                    LayoutType::Runtime => MoveStructLayout::Runtime(layouts),
-                    LayoutType::WithFields => MoveStructLayout::WithFields(
+                    LayoutType::Runtime => MoveDataTypeLayout::Runtime(layouts),
+                    LayoutType::WithFields => MoveDataTypeLayout::WithFields(
                         fields
                             .iter()
                             .map(|f| m.identifier_at(f.name).to_owned())
@@ -546,7 +549,7 @@ impl StructLayoutBuilder {
                             .zip(layouts)
                             .map(|(name, layout)| MoveFieldLayout::new(name, layout))
                             .collect();
-                        MoveStructLayout::WithTypes { type_, fields }
+                        MoveDataTypeLayout::WithTypes { type_, fields }
                     }
                 })
             }
@@ -560,7 +563,7 @@ impl StructLayoutBuilder {
         resolver: &impl GetModule,
         layout_type: LayoutType,
         depth: u64,
-    ) -> Result<MoveStructLayout> {
+    ) -> Result<MoveDataTypeLayout> {
         check_depth!(depth);
         let module = match resolver.get_module_by_id(declaring_module) {
             Err(_) | Ok(None) => bail!("Could not find module"),
@@ -588,18 +591,18 @@ impl StructLayoutBuilder {
 
     fn build_from_handle_idx(
         m: &CompiledModule,
-        s: StructHandleIndex,
+        s: DataTypeHandleIndex,
         type_arguments: Vec<MoveTypeLayout>,
         resolver: &impl GetModule,
         layout_type: LayoutType,
         depth: u64,
-    ) -> Result<MoveStructLayout> {
+    ) -> Result<MoveDataTypeLayout> {
         check_depth!(depth);
         if let Some(def) = m.find_struct_def(s) {
             // declared internally
             Self::build_from_definition(m, def, type_arguments, resolver, layout_type, depth)
         } else {
-            let handle = m.struct_handle_at(s);
+            let handle = m.data_type_handle_at(s);
             let name = m.identifier_at(handle.name);
             let declaring_module = m.module_id_for_handle(m.module_handle_at(handle.module));
             // declared externally

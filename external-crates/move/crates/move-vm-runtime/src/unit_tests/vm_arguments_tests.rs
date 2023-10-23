@@ -9,9 +9,9 @@ use move_binary_format::{
     errors::{VMError, VMResult},
     file_format::{
         empty_module, AbilitySet, AddressIdentifierIndex, Bytecode, CodeUnit, CompiledModule,
-        CompiledScript, FieldDefinition, FunctionDefinition, FunctionHandle, FunctionHandleIndex,
-        IdentifierIndex, ModuleHandle, ModuleHandleIndex, Signature, SignatureIndex,
-        SignatureToken, StructDefinition, StructFieldInformation, StructHandle, StructHandleIndex,
+        CompiledScript, DataTypeHandle, DataTypeHandleIndex, FieldDefinition, FunctionDefinition,
+        FunctionHandle, FunctionHandleIndex, IdentifierIndex, ModuleHandle, ModuleHandleIndex,
+        Signature, SignatureIndex, SignatureToken, StructDefinition, StructFieldInformation,
         TableIndex, TypeSignature, Visibility,
     },
 };
@@ -44,7 +44,7 @@ fn make_script(parameters: Signature) -> Vec<u8> {
     CompiledScript {
         version: move_binary_format::file_format_common::VERSION_MAX,
         module_handles: vec![],
-        struct_handles: vec![],
+        data_type_handles: vec![],
         function_handles: vec![],
 
         function_instantiations: vec![],
@@ -61,6 +61,7 @@ fn make_script(parameters: Signature) -> Vec<u8> {
         code: CodeUnit {
             locals: SignatureIndex(0),
             code: vec![Bytecode::LdU64(0), Bytecode::Abort],
+            jump_tables: vec![],
         },
     }
     .serialize(&mut blob)
@@ -93,7 +94,7 @@ fn make_script_with_non_linking_structs(parameters: Signature) -> Vec<u8> {
             address: AddressIdentifierIndex(0),
             name: IdentifierIndex(0),
         }],
-        struct_handles: vec![StructHandle {
+        data_type_handles: vec![DataTypeHandle {
             module: ModuleHandleIndex(0),
             name: IdentifierIndex(1),
             abilities: AbilitySet::EMPTY,
@@ -125,6 +126,7 @@ fn make_script_with_non_linking_structs(parameters: Signature) -> Vec<u8> {
         code: CodeUnit {
             locals: SignatureIndex(0),
             code: vec![Bytecode::LdU64(0), Bytecode::Abort],
+            jump_tables: vec![],
         },
     }
     .serialize(&mut blob)
@@ -166,7 +168,7 @@ fn make_module_with_function(
             address: AddressIdentifierIndex(0),
             name: IdentifierIndex(0),
         }],
-        struct_handles: vec![StructHandle {
+        data_type_handles: vec![DataTypeHandle {
             module: ModuleHandleIndex(0),
             name: IdentifierIndex(1),
             abilities: AbilitySet::EMPTY,
@@ -185,6 +187,8 @@ fn make_module_with_function(
         struct_def_instantiations: vec![],
         function_instantiations: vec![],
         field_instantiations: vec![],
+        enum_defs: vec![],
+        enum_def_instantiations: vec![],
 
         signatures,
 
@@ -198,7 +202,7 @@ fn make_module_with_function(
         metadata: vec![],
 
         struct_defs: vec![StructDefinition {
-            struct_handle: StructHandleIndex(0),
+            struct_handle: DataTypeHandleIndex(0),
             field_information: StructFieldInformation::Declared(vec![FieldDefinition {
                 name: IdentifierIndex(1),
                 signature: TypeSignature(SignatureToken::Bool),
@@ -212,6 +216,7 @@ fn make_module_with_function(
             code: Some(CodeUnit {
                 locals: SignatureIndex(0),
                 code: vec![Bytecode::LdU64(0), Bytecode::Abort],
+                jump_tables: vec![],
             }),
         }],
     };
@@ -351,37 +356,37 @@ fn call_script_function(
 fn deprecated_bad_signatures() -> Vec<Signature> {
     vec![
         // struct in signature
-        Signature(vec![SignatureToken::Struct(StructHandleIndex(0))]),
+        Signature(vec![SignatureToken::DataType(DataTypeHandleIndex(0))]),
         // struct in signature
         Signature(vec![
             SignatureToken::Bool,
-            SignatureToken::Struct(StructHandleIndex(0)),
+            SignatureToken::DataType(DataTypeHandleIndex(0)),
             SignatureToken::U64,
         ]),
         // reference to struct in signature
         Signature(vec![
             SignatureToken::Address,
-            SignatureToken::MutableReference(Box::new(SignatureToken::Struct(StructHandleIndex(
-                0,
-            )))),
+            SignatureToken::MutableReference(Box::new(SignatureToken::DataType(
+                DataTypeHandleIndex(0),
+            ))),
         ]),
         // vector of struct in signature
         Signature(vec![
             SignatureToken::Bool,
-            SignatureToken::Vector(Box::new(SignatureToken::Struct(StructHandleIndex(0)))),
+            SignatureToken::Vector(Box::new(SignatureToken::DataType(DataTypeHandleIndex(0)))),
             SignatureToken::U64,
         ]),
         // vector of vector of struct in signature
         Signature(vec![
             SignatureToken::Bool,
             SignatureToken::Vector(Box::new(SignatureToken::Vector(Box::new(
-                SignatureToken::Struct(StructHandleIndex(0)),
+                SignatureToken::DataType(DataTypeHandleIndex(0)),
             )))),
             SignatureToken::U64,
         ]),
         // reference to vector in signature
         Signature(vec![SignatureToken::Reference(Box::new(
-            SignatureToken::Vector(Box::new(SignatureToken::Struct(StructHandleIndex(0)))),
+            SignatureToken::Vector(Box::new(SignatureToken::DataType(DataTypeHandleIndex(0)))),
         ))]),
         // reference to vector in signature
         Signature(vec![SignatureToken::Reference(Box::new(

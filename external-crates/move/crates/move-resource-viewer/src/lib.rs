@@ -19,7 +19,7 @@ use move_core_types::{
     language_storage::{ModuleId, StructTag, TypeTag},
     resolver::MoveResolver,
     u256,
-    value::{MoveStruct, MoveTypeLayout, MoveValue},
+    value::{MoveDataType, MoveTypeLayout, MoveValue},
     vm_status::VMStatus,
 };
 use move_proc_macros::test_variant_order;
@@ -155,7 +155,7 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
     pub fn view_resource(&self, tag: &StructTag, blob: &[u8]) -> Result<AnnotatedMoveStruct> {
         let ty = self.cache.resolve_struct(tag)?;
         let struct_def = (&ty).try_into().map_err(into_vm_status)?;
-        let move_struct = MoveStruct::simple_deserialize(blob, &struct_def)?;
+        let move_struct = MoveDataType::simple_deserialize(blob, &struct_def)?;
         self.annotate_struct(&move_struct, &ty)
     }
 
@@ -166,14 +166,23 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
     ) -> Result<Vec<(Identifier, MoveValue)>> {
         let ty = self.cache.resolve_struct(tag)?;
         let struct_def = (&ty).try_into().map_err(into_vm_status)?;
-        Ok(match MoveStruct::simple_deserialize(blob, &struct_def)? {
-            MoveStruct::Runtime(runtime) => self
+        Ok(match MoveDataType::simple_deserialize(blob, &struct_def)? {
+            MoveDataType::Runtime(runtime) => self
                 .cache
                 .get_field_names(&ty)?
                 .into_iter()
                 .zip(runtime)
                 .collect(),
-            MoveStruct::WithFields(fields) | MoveStruct::WithTypes { fields, .. } => fields,
+            MoveDataType::VariantRuntime { fields, .. } => self
+                .cache
+                .get_field_names(&ty)?
+                .into_iter()
+                .zip(fields)
+                .collect(),
+            MoveDataType::WithFields(fields)
+            | MoveDataType::WithTypes { fields, .. }
+            | MoveDataType::VariantWithTypes { fields, .. }
+            | MoveDataType::VariantWithFields { fields, .. } => fields,
         })
     }
 
@@ -190,7 +199,7 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
 
     fn annotate_struct(
         &self,
-        move_struct: &MoveStruct,
+        move_struct: &MoveDataType,
         ty: &FatStructType,
     ) -> Result<AnnotatedMoveStruct> {
         let struct_tag = ty
@@ -234,7 +243,7 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
                         .collect::<Result<_>>()?,
                 ),
             },
-            (MoveValue::Struct(s), FatType::Struct(ty)) => {
+            (MoveValue::DataType(s), FatType::Struct(ty)) => {
                 AnnotatedMoveValue::Struct(self.annotate_struct(s, ty.as_ref())?)
             }
             (MoveValue::U8(_), _)
@@ -243,7 +252,7 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
             | (MoveValue::Bool(_), _)
             | (MoveValue::Address(_), _)
             | (MoveValue::Vector(_), _)
-            | (MoveValue::Struct(_), _)
+            | (MoveValue::DataType(_), _)
             | (MoveValue::Signer(_), _)
             | (MoveValue::U16(_), _)
             | (MoveValue::U32(_), _)

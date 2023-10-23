@@ -352,7 +352,7 @@ pub fn run_bytecode_model_builder<'a>(
         // add structs
         for (i, def) in m.struct_defs().iter().enumerate() {
             let def_idx = StructDefinitionIndex(i as u16);
-            let name = m.identifier_at(m.struct_handle_at(def.struct_handle).name);
+            let name = m.identifier_at(m.data_type_handle_at(def.struct_handle).name);
             let symbol = env.symbol_pool().make(name.as_str());
             let struct_id = StructId::new(symbol);
             let data = env.create_move_struct_data(
@@ -486,7 +486,7 @@ fn script_into_module(compiled_script: CompiledScript) -> CompiledModule {
         version: script.version,
         module_handles: script.module_handles,
         self_module_handle_idx,
-        struct_handles: script.struct_handles,
+        data_type_handles: script.data_type_handles,
         function_handles: script.function_handles,
         field_handles: vec![],
         friend_decls: vec![],
@@ -504,6 +504,9 @@ fn script_into_module(compiled_script: CompiledScript) -> CompiledModule {
 
         struct_defs: vec![],
         function_defs: vec![main_def],
+
+        enum_defs: vec![],
+        enum_def_instantiations: vec![],
     };
     BoundsChecker::verify_module(&module).expect("invalid bounds in module");
     module

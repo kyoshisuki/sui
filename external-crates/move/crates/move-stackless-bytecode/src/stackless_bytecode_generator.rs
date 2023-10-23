@@ -1323,6 +1323,16 @@ impl<'a> StacklessBytecodeGenerator<'a> {
                     None,
                 ))
             }
+            // TODO(tzakian)[enums] Fill these in!
+            MoveBytecode::PackVariant(_, _) => todo!(),
+            MoveBytecode::PackVariantGeneric(_, _) => todo!(),
+            MoveBytecode::UnpackVariant(_, _) => todo!(),
+            MoveBytecode::UnpackVariantImmRef(_, _) => todo!(),
+            MoveBytecode::UnpackVariantMutRef(_, _) => todo!(),
+            MoveBytecode::UnpackVariantGeneric(_, _) => todo!(),
+            MoveBytecode::UnpackVariantGenericImmRef(_, _) => todo!(),
+            MoveBytecode::UnpackVariantGenericMutRef(_, _) => todo!(),
+            MoveBytecode::VariantSwitch(_) => todo!(),
         }
     }
 

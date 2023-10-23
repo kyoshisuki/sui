@@ -320,7 +320,7 @@ impl AstDebug for MoveValue {
                 w.comma(vs, |w, v| v.ast_debug(w));
                 w.write("]");
             }
-            V::Struct(_) => panic!("ICE struct constants not supported"),
+            V::DataType(_) => panic!("ICE struct constants not supported"),
             V::Signer(_) => panic!("ICE signer constants not supported"),
         }
     }

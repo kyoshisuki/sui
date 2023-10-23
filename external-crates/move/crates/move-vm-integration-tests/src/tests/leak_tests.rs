@@ -18,7 +18,7 @@ fn leak_with_abort() {
     let cs = CompiledScript {
         version: 6,
         module_handles: vec![],
-        struct_handles: vec![],
+        data_type_handles: vec![],
         function_handles: vec![],
         function_instantiations: vec![],
         signatures: vec![Signature(vec![]), Signature(locals)],
@@ -28,6 +28,7 @@ fn leak_with_abort() {
         metadata: vec![],
         code: CodeUnit {
             locals: SignatureIndex(1),
+            jump_tables: vec![],
             code: vec![
                 // leak
                 LdU128(0),

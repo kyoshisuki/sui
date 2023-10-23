@@ -9,7 +9,7 @@ use move_core_types::{
     identifier::Identifier,
     language_storage::{ModuleId, TypeTag},
     u256::U256,
-    value::{MoveStruct, MoveValue},
+    value::{MoveDataType, MoveValue},
     vm_status::StatusCode,
 };
 use move_vm_runtime::move_vm::MoveVM;
@@ -166,7 +166,9 @@ fn expected_u64_got_u64() {
 fn expected_Foo_got_Foo() {
     expect_ok(
         &["Foo"],
-        vec![MoveValue::Struct(MoveStruct::new(vec![MoveValue::U64(0)]))],
+        vec![MoveValue::DataType(MoveDataType::new(vec![
+            MoveValue::U64(0),
+        ]))],
     )
 }
 
@@ -243,9 +245,9 @@ fn expected_T__Bar_T_got_bool__Bar_bool() {
         &["T"],
         &["Bar<T>"],
         vec![TypeTag::Bool],
-        vec![MoveValue::Struct(MoveStruct::new(vec![MoveValue::Bool(
-            false,
-        )]))],
+        vec![MoveValue::DataType(MoveDataType::new(vec![
+            MoveValue::Bool(false),
+        ]))],
     )
 }
 
@@ -285,7 +287,9 @@ fn expected_T__Bar_T_got_bool__Bar_u64() {
         &["T"],
         &["Bar<T>"],
         vec![TypeTag::Bool],
-        vec![MoveValue::Struct(MoveStruct::new(vec![MoveValue::U64(0)]))],
+        vec![MoveValue::DataType(MoveDataType::new(vec![
+            MoveValue::U64(0),
+        ]))],
         StatusCode::FAILED_TO_DESERIALIZE_ARGUMENT,
     )
 }

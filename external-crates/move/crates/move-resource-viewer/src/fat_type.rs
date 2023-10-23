@@ -11,7 +11,7 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::Identifier,
     language_storage::{StructTag, TypeTag},
-    value::{MoveStructLayout, MoveTypeLayout},
+    value::{MoveDataTypeLayout, MoveTypeLayout},
     vm_status::StatusCode,
 };
 use move_proc_macros::test_variant_order;
@@ -174,11 +174,11 @@ impl FatType {
     }
 }
 
-impl TryInto<MoveStructLayout> for &FatStructType {
+impl TryInto<MoveDataTypeLayout> for &FatStructType {
     type Error = PartialVMError;
 
-    fn try_into(self) -> Result<MoveStructLayout, Self::Error> {
-        Ok(MoveStructLayout::new(
+    fn try_into(self) -> Result<MoveDataTypeLayout, Self::Error> {
+        Ok(MoveDataTypeLayout::new(
             self.layout
                 .iter()
                 .map(|ty| ty.try_into())
@@ -201,7 +201,7 @@ impl TryInto<MoveTypeLayout> for &FatType {
             FatType::U256 => MoveTypeLayout::U256,
             FatType::Bool => MoveTypeLayout::Bool,
             FatType::Vector(v) => MoveTypeLayout::Vector(Box::new(v.as_ref().try_into()?)),
-            FatType::Struct(s) => MoveTypeLayout::Struct(MoveStructLayout::new(
+            FatType::Struct(s) => MoveTypeLayout::Struct(MoveDataTypeLayout::new(
                 s.layout
                     .iter()
                     .map(|ty| ty.try_into())

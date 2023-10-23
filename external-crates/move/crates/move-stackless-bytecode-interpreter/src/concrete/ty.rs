@@ -19,7 +19,7 @@ use std::fmt;
 use move_core_types::{
     identifier::Identifier,
     language_storage::{StructTag, TypeTag},
-    value::{MoveStructLayout, MoveTypeLayout},
+    value::{MoveDataTypeLayout, MoveTypeLayout},
 };
 use move_model::{
     model::{GlobalEnv, ModuleId, StructId},
@@ -212,8 +212,8 @@ impl StructInstantiation {
         }
     }
 
-    pub fn to_move_struct_layout(&self) -> MoveStructLayout {
-        MoveStructLayout::new(
+    pub fn to_move_struct_layout(&self) -> MoveDataTypeLayout {
+        MoveDataTypeLayout::new(
             self.fields
                 .iter()
                 .map(|e| e.ty.to_move_type_layout())

@@ -30,7 +30,7 @@ use move_vm_types::{
     loaded_data::runtime_types::Type,
     values::{
         self, GlobalValue, IntegerValue, Locals, Reference, Struct, StructRef, VMValueCast, Value,
-        Vector, VectorRef,
+        Variant, VariantRef, Vector, VectorRef,
     },
     views::TypeView,
 };
@@ -1273,7 +1273,16 @@ impl Frame {
             | Bytecode::VecPushBack(_)
             | Bytecode::VecPopBack(_)
             | Bytecode::VecUnpack(_, _)
-            | Bytecode::VecSwap(_) => (),
+            | Bytecode::VecSwap(_)
+            | Bytecode::PackVariant(_, _)
+            | Bytecode::PackVariantGeneric(_, _)
+            | Bytecode::UnpackVariant(_, _)
+            | Bytecode::UnpackVariantImmRef(_, _)
+            | Bytecode::UnpackVariantMutRef(_, _)
+            | Bytecode::UnpackVariantGeneric(_, _)
+            | Bytecode::UnpackVariantGenericImmRef(_, _)
+            | Bytecode::UnpackVariantGenericMutRef(_, _)
+            | Bytecode::VariantSwitch(_) => (),
         };
         Ok(())
     }
@@ -1416,7 +1425,7 @@ impl Frame {
             Bytecode::PackGeneric(idx) => {
                 let field_count = resolver.field_instantiation_count(*idx);
                 let args_ty = resolver.instantiate_generic_struct_fields(*idx, ty_args)?;
-                let output_ty = resolver.instantiate_generic_type(*idx, ty_args)?;
+                let output_ty = resolver.instantiate_struct_type(*idx, ty_args)?;
                 let ability = resolver.loader().abilities(&output_ty)?;
 
                 // If the struct has a key ability, we expects all of its field to have store ability but not key ability.
@@ -1461,7 +1470,7 @@ impl Frame {
             }
             Bytecode::UnpackGeneric(idx) => {
                 let struct_ty = interpreter.operand_stack.pop_ty()?;
-                struct_ty.check_eq(&resolver.instantiate_generic_type(*idx, ty_args)?)?;
+                struct_ty.check_eq(&resolver.instantiate_struct_type(*idx, ty_args)?)?;
 
                 let struct_decl = resolver.instantiate_generic_struct_fields(*idx, ty_args)?;
                 for ty in struct_decl.into_iter() {
@@ -1601,7 +1610,7 @@ impl Frame {
                     .operand_stack
                     .pop_ty()?
                     .check_eq(&Type::Address)?;
-                let ty = resolver.instantiate_generic_type(*idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*idx, ty_args)?;
                 check_ability(resolver.loader().abilities(&ty)?.has_key())?;
                 interpreter
                     .operand_stack
@@ -1612,7 +1621,7 @@ impl Frame {
                     .operand_stack
                     .pop_ty()?
                     .check_eq(&Type::Address)?;
-                let ty = resolver.instantiate_generic_type(*idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*idx, ty_args)?;
                 check_ability(resolver.loader().abilities(&ty)?.has_key())?;
                 interpreter
                     .operand_stack
@@ -1640,7 +1649,7 @@ impl Frame {
                     .operand_stack
                     .pop_ty()?
                     .check_eq(&Type::Reference(Box::new(Type::Signer)))?;
-                ty.check_eq(&resolver.instantiate_generic_type(*idx, ty_args)?)?;
+                ty.check_eq(&resolver.instantiate_struct_type(*idx, ty_args)?)?;
                 check_ability(resolver.loader().abilities(&ty)?.has_key())?;
             }
             Bytecode::MoveFrom(idx) => {
@@ -1657,7 +1666,7 @@ impl Frame {
                     .operand_stack
                     .pop_ty()?
                     .check_eq(&Type::Address)?;
-                let ty = resolver.instantiate_generic_type(*idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*idx, ty_args)?;
                 check_ability(resolver.loader().abilities(&ty)?.has_key())?;
                 interpreter.operand_stack.push_ty(ty)?;
             }
@@ -1762,6 +1771,16 @@ impl Frame {
                     .pop_ty()?
                     .check_vec_ref(&ty, true)?;
             }
+            // This is all going away so not going to implement it
+            Bytecode::PackVariant(_, _) => unimplemented!(),
+            Bytecode::PackVariantGeneric(_, _) => unimplemented!(),
+            Bytecode::UnpackVariant(_, _) => unimplemented!(),
+            Bytecode::UnpackVariantImmRef(_, _) => unimplemented!(),
+            Bytecode::UnpackVariantMutRef(_, _) => unimplemented!(),
+            Bytecode::UnpackVariantGeneric(_, _) => unimplemented!(),
+            Bytecode::UnpackVariantGenericImmRef(_, _) => unimplemented!(),
+            Bytecode::UnpackVariantGenericMutRef(_, _) => unimplemented!(),
+            Bytecode::VariantSwitch(_) => unimplemented!(),
         }
         Ok(())
     }
@@ -1949,7 +1968,7 @@ impl Frame {
             }
             Bytecode::PackGeneric(si_idx) => {
                 let field_count = resolver.field_instantiation_count(*si_idx);
-                let ty = resolver.instantiate_generic_type(*si_idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*si_idx, ty_args)?;
                 Self::check_depth_of_type(resolver, &ty)?;
                 gas_meter.charge_pack(
                     true,
@@ -2149,7 +2168,7 @@ impl Frame {
             Bytecode::MutBorrowGlobalGeneric(si_idx) | Bytecode::ImmBorrowGlobalGeneric(si_idx) => {
                 let is_mut = matches!(instruction, Bytecode::MutBorrowGlobalGeneric(_));
                 let addr = interpreter.operand_stack.pop_as::<AccountAddress>()?;
-                let ty = resolver.instantiate_generic_type(*si_idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*si_idx, ty_args)?;
                 interpreter.borrow_global(
                     is_mut,
                     true,
@@ -2167,7 +2186,7 @@ impl Frame {
             }
             Bytecode::ExistsGeneric(si_idx) => {
                 let addr = interpreter.operand_stack.pop_as::<AccountAddress>()?;
-                let ty = resolver.instantiate_generic_type(*si_idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*si_idx, ty_args)?;
                 interpreter.exists(true, resolver.loader(), gas_meter, data_store, addr, &ty)?;
             }
             Bytecode::MoveFrom(sd_idx) => {
@@ -2184,7 +2203,7 @@ impl Frame {
             }
             Bytecode::MoveFromGeneric(si_idx) => {
                 let addr = interpreter.operand_stack.pop_as::<AccountAddress>()?;
-                let ty = resolver.instantiate_generic_type(*si_idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*si_idx, ty_args)?;
                 interpreter.move_from(true, resolver.loader(), gas_meter, data_store, addr, &ty)?;
             }
             Bytecode::MoveTo(sd_idx) => {
@@ -2215,7 +2234,7 @@ impl Frame {
                     .value_as::<Reference>()?
                     .read_ref()?
                     .value_as::<AccountAddress>()?;
-                let ty = resolver.instantiate_generic_type(*si_idx, ty_args)?;
+                let ty = resolver.instantiate_struct_type(*si_idx, ty_args)?;
                 interpreter.move_to(
                     true,
                     resolver.loader(),
@@ -2310,6 +2329,78 @@ impl Frame {
                 let ty = &resolver.instantiate_single_type(*si, ty_args)?;
                 gas_meter.charge_vec_swap(make_ty!(ty))?;
                 vec_ref.swap(idx1, idx2, ty)?;
+            }
+            Bytecode::PackVariant(eidx, variant_tag) => {
+                let field_count = resolver.variant_field_count(*eidx, *variant_tag);
+                let enum_type = resolver.get_enum_type(*eidx);
+                Self::check_depth_of_type(resolver, &enum_type)?;
+                gas_meter.charge_pack(
+                    false,
+                    interpreter.operand_stack.last_n(field_count as usize)?,
+                )?;
+                let args = interpreter.operand_stack.popn(field_count)?;
+                interpreter
+                    .operand_stack
+                    .push(Value::variant(Variant::pack(*variant_tag, args)))?;
+            }
+            Bytecode::PackVariantGeneric(edii, variant_tag) => {
+                let field_count =
+                    resolver.variant_instantiantiation_field_count(*edii, *variant_tag);
+                let ty = resolver.instantiate_enum_type(*edii, ty_args)?;
+                Self::check_depth_of_type(resolver, &ty)?;
+                gas_meter.charge_pack(
+                    true,
+                    interpreter.operand_stack.last_n(field_count as usize)?,
+                )?;
+                let args = interpreter.operand_stack.popn(field_count)?;
+                interpreter
+                    .operand_stack
+                    .push(Value::variant(Variant::pack(*variant_tag, args)))?;
+            }
+            Bytecode::UnpackVariant(_eidx, variant_tag) => {
+                let variant = interpreter.operand_stack.pop_as::<Variant>()?;
+                gas_meter.charge_unpack(false, variant.field_views())?;
+                variant.check_tag(*variant_tag)?;
+                for value in variant.unpack()? {
+                    interpreter.operand_stack.push(value)?;
+                }
+            }
+            Bytecode::UnpackVariantImmRef(_eidx, variant_tag)
+            | Bytecode::UnpackVariantMutRef(_eidx, variant_tag) => {
+                let reference = interpreter.operand_stack.pop_as::<VariantRef>()?;
+                reference.check_tag(*variant_tag)?;
+                // TODO(tzakian)[enums]
+                // gas_meter.charge_unpack(false, reference.field_views())?;
+                let references = reference.unpack_variant()?;
+                for reference in references {
+                    interpreter.operand_stack.push(reference)?;
+                }
+            }
+            Bytecode::UnpackVariantGeneric(_edii, variant_tag) => {
+                let variant = interpreter.operand_stack.pop_as::<Variant>()?;
+                gas_meter.charge_unpack(true, variant.field_views())?;
+                variant.check_tag(*variant_tag)?;
+                for value in variant.unpack()? {
+                    interpreter.operand_stack.push(value)?;
+                }
+            }
+            Bytecode::UnpackVariantGenericImmRef(_edii, variant_tag)
+            | Bytecode::UnpackVariantGenericMutRef(_edii, variant_tag) => {
+                let reference = interpreter.operand_stack.pop_as::<VariantRef>()?;
+                reference.check_tag(*variant_tag)?;
+                // TODO(tzakian)[enums]
+                // gas_meter.charge_unpack(false, reference.field_views())?;
+                let references = reference.unpack_variant()?;
+                for reference in references {
+                    interpreter.operand_stack.push(reference)?;
+                }
+            }
+            Bytecode::VariantSwitch(jump_table_index) => {
+                let reference = interpreter.operand_stack.pop_as::<VariantRef>()?;
+                let tag = reference.get_tag()?;
+                let jump_table = &function.jump_tables()[jump_table_index.0 as usize];
+                *pc = jump_table.jump_table[tag as usize];
+                return Ok(InstrRet::Branch);
             }
         }
 
@@ -2476,8 +2567,8 @@ impl Frame {
             Type::Reference(ty) | Type::MutableReference(ty) | Type::Vector(ty) => {
                 Self::check_depth_of_type_impl(resolver, ty, check_depth!(1), max_depth)?
             }
-            Type::Struct(si) => {
-                let struct_type = resolver.loader().get_struct_type(*si).ok_or_else(|| {
+            Type::DataType(si) => {
+                let struct_type = resolver.loader().get_type(*si).ok_or_else(|| {
                     PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
                         .with_message("Struct Definition not resolved".to_string())
                 })?;
@@ -2487,7 +2578,7 @@ impl Frame {
                     .ok_or_else(|| { PartialVMError::new(StatusCode::VM_MAX_VALUE_DEPTH_REACHED) })?
                     .solve(&[])?)
             }
-            Type::StructInstantiation(si, ty_args) => {
+            Type::DataTypeInstantiation(si, ty_args) => {
                 // Calculate depth of all type arguments, and make sure they themselves are not too deep.
                 let ty_arg_depths = ty_args
                     .iter()
@@ -2496,7 +2587,7 @@ impl Frame {
                         Self::check_depth_of_type_impl(resolver, ty, check_depth!(0), max_depth)
                     })
                     .collect::<PartialVMResult<Vec<_>>>()?;
-                let struct_type = resolver.loader().get_struct_type(*si).ok_or_else(|| {
+                let struct_type = resolver.loader().get_type(*si).ok_or_else(|| {
                     PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
                         .with_message("Struct Definition not resolved".to_string())
                 })?;

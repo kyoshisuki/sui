@@ -5,15 +5,16 @@
 use move_binary_format::{
     errors::{PartialVMError, PartialVMResult},
     file_format::{
-        AbilitySet, SignatureToken, StructDefinitionIndex, StructTypeParameter, TypeParameterIndex,
+        AbilitySet, DataTypeTyParameter, EnumDefinitionIndex, SignatureToken,
+        StructDefinitionIndex, TypeParameterIndex, VariantTag,
     },
 };
 use move_core_types::{
     gas_algebra::AbstractMemorySize, identifier::Identifier, language_storage::ModuleId,
     vm_status::StatusCode,
 };
-use std::fmt::Debug;
 use std::{cmp::max, collections::BTreeMap};
+use std::{fmt::Debug, sync::Arc};
 
 pub const TYPE_DEPTH_MAX: usize = 256;
 
@@ -127,26 +128,72 @@ impl DepthFormula {
 }
 
 #[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct StructType {
-    pub fields: Vec<Type>,
-    pub field_names: Vec<Identifier>,
+pub struct CachedDataType {
     pub abilities: AbilitySet,
-    pub type_parameters: Vec<StructTypeParameter>,
+    pub type_parameters: Vec<DataTypeTyParameter>,
     pub name: Identifier,
     pub defining_id: ModuleId,
     pub runtime_id: ModuleId,
-    pub struct_def: StructDefinitionIndex,
     pub depth: Option<DepthFormula>,
+    pub data_type_info: DataType,
 }
 
-impl StructType {
+#[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum DataType {
+    Enum(Arc<EnumType>),
+    Struct(Arc<StructType>),
+}
+
+#[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct EnumType {
+    pub variants: Vec<VariantType>,
+    pub enum_def: EnumDefinitionIndex,
+}
+
+#[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct VariantType {
+    pub fields: Vec<Type>,
+    pub enum_def: EnumDefinitionIndex,
+    pub variant_tag: VariantTag,
+}
+
+#[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct StructType {
+    pub fields: Vec<Type>,
+    pub field_names: Vec<Identifier>,
+    pub struct_def: StructDefinitionIndex,
+}
+
+impl CachedDataType {
+    pub fn get_struct(&self) -> PartialVMResult<Arc<StructType>> {
+        match &self.data_type_info {
+            DataType::Struct(struct_type) => Ok(Arc::clone(struct_type)),
+            x => Err(
+                PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
+                    .with_message(format!("Expected struct type but got {:?}", x)),
+            ),
+        }
+    }
+
+    pub fn get_enum(&self) -> PartialVMResult<Arc<EnumType>> {
+        match &self.data_type_info {
+            DataType::Enum(enum_type) => Ok(Arc::clone(enum_type)),
+            x => Err(
+                PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
+                    .with_message(format!("Expected enum type but got {:?}", x)),
+            ),
+        }
+    }
+}
+
+impl CachedDataType {
     pub fn type_param_constraints(&self) -> impl ExactSizeIterator<Item = &AbilitySet> {
         self.type_parameters.iter().map(|param| &param.constraints)
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct CachedStructIndex(pub usize);
+pub struct CachedTypeIndex(pub usize);
 
 #[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Type {
@@ -157,8 +204,8 @@ pub enum Type {
     Address,
     Signer,
     Vector(Box<Type>),
-    Struct(CachedStructIndex),
-    StructInstantiation(CachedStructIndex, Vec<Type>),
+    DataType(CachedTypeIndex),
+    DataTypeInstantiation(CachedTypeIndex, Vec<Type>),
     Reference(Box<Type>),
     MutableReference(Box<Type>),
     TyParam(u16),
@@ -195,13 +242,13 @@ impl Type {
             Type::MutableReference(ty) => {
                 Type::MutableReference(Box::new(ty.apply_subst(subst, depth + 1)?))
             }
-            Type::Struct(def_idx) => Type::Struct(*def_idx),
-            Type::StructInstantiation(def_idx, instantiation) => {
+            Type::DataType(def_idx) => Type::DataType(*def_idx),
+            Type::DataTypeInstantiation(def_idx, instantiation) => {
                 let mut inst = vec![];
                 for ty in instantiation {
                     inst.push(ty.apply_subst(subst, depth + 1)?)
                 }
-                Type::StructInstantiation(*def_idx, inst)
+                Type::DataTypeInstantiation(*def_idx, inst)
             }
         };
         Ok(res)
@@ -241,8 +288,8 @@ impl Type {
             Vector(ty) | Reference(ty) | MutableReference(ty) => {
                 Self::LEGACY_BASE_MEMORY_SIZE + ty.size()
             }
-            Struct(_) => Self::LEGACY_BASE_MEMORY_SIZE,
-            StructInstantiation(_, tys) => tys
+            DataType(_) => Self::LEGACY_BASE_MEMORY_SIZE,
+            DataTypeInstantiation(_, tys) => tys
                 .iter()
                 .fold(Self::LEGACY_BASE_MEMORY_SIZE, |acc, ty| acc + ty.size()),
         }
@@ -263,7 +310,7 @@ impl Type {
             S::Address => L::Address,
             S::Vector(inner) => L::Vector(Box::new(Self::from_const_signature(inner)?)),
             // Not yet supported
-            S::Struct(_) | S::StructInstantiation(_, _) => {
+            S::DataType(_) | S::DataTypeInstantiation(_, _) => {
                 return Err(
                     PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
                         .with_message("Unable to load const type signature".to_string()),

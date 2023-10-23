@@ -2001,26 +2001,26 @@ impl<'env, 'translator, 'module_translator> ExpTranslator<'env, 'translator, 'mo
                 }
             },
             (Type::Primitive(_), MoveValue::Vector(_))
-            | (Type::Primitive(_), MoveValue::Struct(_))
+            | (Type::Primitive(_), MoveValue::DataType(_))
             | (Type::Tuple(_), MoveValue::Vector(_))
-            | (Type::Tuple(_), MoveValue::Struct(_))
-            | (Type::Vector(_), MoveValue::Struct(_))
+            | (Type::Tuple(_), MoveValue::DataType(_))
+            | (Type::Vector(_), MoveValue::DataType(_))
             | (Type::Struct(_, _, _), MoveValue::Vector(_))
-            | (Type::Struct(_, _, _), MoveValue::Struct(_))
+            | (Type::Struct(_, _, _), MoveValue::DataType(_))
             | (Type::TypeParameter(_), MoveValue::Vector(_))
-            | (Type::TypeParameter(_), MoveValue::Struct(_))
+            | (Type::TypeParameter(_), MoveValue::DataType(_))
             | (Type::Reference(_, _), MoveValue::Vector(_))
-            | (Type::Reference(_, _), MoveValue::Struct(_))
+            | (Type::Reference(_, _), MoveValue::DataType(_))
             | (Type::Fun(_, _), MoveValue::Vector(_))
-            | (Type::Fun(_, _), MoveValue::Struct(_))
+            | (Type::Fun(_, _), MoveValue::DataType(_))
             | (Type::TypeDomain(_), MoveValue::Vector(_))
-            | (Type::TypeDomain(_), MoveValue::Struct(_))
+            | (Type::TypeDomain(_), MoveValue::DataType(_))
             | (Type::ResourceDomain(_, _, _), MoveValue::Vector(_))
-            | (Type::ResourceDomain(_, _, _), MoveValue::Struct(_))
+            | (Type::ResourceDomain(_, _, _), MoveValue::DataType(_))
             | (Type::Error, MoveValue::Vector(_))
-            | (Type::Error, MoveValue::Struct(_))
+            | (Type::Error, MoveValue::DataType(_))
             | (Type::Var(_), MoveValue::Vector(_))
-            | (Type::Var(_), MoveValue::Struct(_)) => {
+            | (Type::Var(_), MoveValue::DataType(_)) => {
                 self.error(
                     loc,
                     &format!("Not yet supported constant value: {:?}", value),

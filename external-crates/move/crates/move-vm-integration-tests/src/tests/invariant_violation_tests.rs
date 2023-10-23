@@ -14,7 +14,7 @@ fn merge_borrow_states_infinite_loop() {
     let cs = CompiledScript {
         version: 6,
         module_handles: vec![],
-        struct_handles: vec![],
+        data_type_handles: vec![],
         function_handles: vec![],
         function_instantiations: vec![],
         signatures: vec![
@@ -38,6 +38,7 @@ fn merge_borrow_states_infinite_loop() {
         // The bytecode verifier should reject this code but it doesn't.
         code: CodeUnit {
             locals: SignatureIndex(1),
+            jump_tables: vec![],
             code: vec![
                 LdU64(0),
                 StLoc(0), // { 0 => 0 }

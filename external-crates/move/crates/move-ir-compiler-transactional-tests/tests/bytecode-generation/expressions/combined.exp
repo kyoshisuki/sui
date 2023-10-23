@@ -1,8 +1,10 @@
 processed 1 task
 
 task 0 'print-bytecode'. lines 1-11:
-// Move bytecode v6
+// Move bytecode v7
 script {
+
+
 
 
 main() {
@@ -23,5 +25,6 @@ B0:
 	10: Sub
 	11: StLoc[2](loc2: u64)
 	12: Ret
+
 }
 }

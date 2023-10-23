@@ -14,7 +14,7 @@ use move_core_types::{
     language_storage::{ModuleId, TypeTag},
     parser::{parse_transaction_argument, parse_type_tag},
     transaction_argument::TransactionArgument,
-    value::{MoveStruct, MoveValue},
+    value::{MoveDataType, MoveValue},
     vm_status::StatusCode,
 };
 use move_model::{
@@ -386,7 +386,7 @@ fn convert_typed_value_to_move_value(ty: &BaseType, val: BaseValue) -> MoveValue
                 .map(|e| convert_typed_value_to_move_value(elem, e))
                 .collect(),
         ),
-        BaseType::Struct(inst) => MoveValue::Struct(MoveStruct::new(
+        BaseType::Struct(inst) => MoveValue::DataType(MoveDataType::new(
             val.into_struct()
                 .into_iter()
                 .zip(inst.fields.iter())

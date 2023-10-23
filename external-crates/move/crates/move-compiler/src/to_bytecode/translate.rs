@@ -46,7 +46,7 @@ fn extract_decls(
     prog: &G::Program,
 ) -> (
     HashMap<ModuleIdent, usize>,
-    HashMap<(ModuleIdent, StructName), (BTreeSet<IR::Ability>, Vec<IR::StructTypeParameter>)>,
+    HashMap<(ModuleIdent, StructName), (BTreeSet<IR::Ability>, Vec<IR::DataTypeTypeParameter>)>,
     HashMap<
         (ModuleIdent, FunctionName),
         (BTreeSet<(ModuleIdent, StructName)>, IR::FunctionSignature),
@@ -170,7 +170,7 @@ fn module(
     dependency_orderings: &HashMap<ModuleIdent, usize>,
     struct_declarations: &HashMap<
         (ModuleIdent, StructName),
-        (BTreeSet<IR::Ability>, Vec<IR::StructTypeParameter>),
+        (BTreeSet<IR::Ability>, Vec<IR::DataTypeTypeParameter>),
     >,
     function_declarations: &HashMap<
         (ModuleIdent, FunctionName),
@@ -190,6 +190,8 @@ fn module(
         functions: gfunctions,
     } = mdef;
     let structs = struct_defs(&mut context, &ident, gstructs);
+    // TODO(enums): Add enum defs here!
+    let enums = vec![];
     let constants = constants(&mut context, Some(&ident), gconstants);
     let (collected_function_infos, functions) = functions(&mut context, Some(&ident), gfunctions);
 
@@ -229,6 +231,7 @@ fn module(
         imports,
         explicit_dependency_declarations,
         structs,
+        enums,
         constants,
         functions,
         synthetics: vec![],
@@ -273,7 +276,7 @@ fn script(
     dependency_orderings: &HashMap<ModuleIdent, usize>,
     struct_declarations: &HashMap<
         (ModuleIdent, StructName),
-        (BTreeSet<IR::Ability>, Vec<IR::StructTypeParameter>),
+        (BTreeSet<IR::Ability>, Vec<IR::DataTypeTypeParameter>),
     >,
     function_declarations: &HashMap<
         (ModuleIdent, FunctionName),
@@ -801,7 +804,7 @@ fn field(f: Field) -> IR::Field {
 fn struct_definition_name(
     context: &mut Context,
     sp!(_, t_): H::Type,
-) -> (IR::StructName, Vec<IR::Type>) {
+) -> (IR::DataTypeName, Vec<IR::Type>) {
     match t_ {
         H::Type_::Single(st) => struct_definition_name_single(context, st),
         _ => panic!("ICE expected single type"),
@@ -811,7 +814,7 @@ fn struct_definition_name(
 fn struct_definition_name_single(
     context: &mut Context,
     sp!(_, st_): H::SingleType,
-) -> (IR::StructName, Vec<IR::Type>) {
+) -> (IR::DataTypeName, Vec<IR::Type>) {
     match st_ {
         H::SingleType_::Ref(_, bt) | H::SingleType_::Base(bt) => {
             struct_definition_name_base(context, bt)
@@ -822,7 +825,7 @@ fn struct_definition_name_single(
 fn struct_definition_name_base(
     context: &mut Context,
     sp!(_, bt_): H::BaseType,
-) -> (IR::StructName, Vec<IR::Type>) {
+) -> (IR::DataTypeName, Vec<IR::Type>) {
     use H::{BaseType_ as B, TypeName_ as TN};
     match bt_ {
         B::Apply(_, sp!(_, TN::ModuleType(m, s)), tys) => (
@@ -858,7 +861,7 @@ fn fun_type_parameters(tps: Vec<TParam>) -> Vec<(IR::TypeVar, BTreeSet<IR::Abili
         .collect()
 }
 
-fn struct_type_parameters(tps: Vec<StructTypeParameter>) -> Vec<IR::StructTypeParameter> {
+fn struct_type_parameters(tps: Vec<StructTypeParameter>) -> Vec<IR::DataTypeTypeParameter> {
     tps.into_iter()
         .map(|StructTypeParameter { is_phantom, param }| {
             let name = type_var(param.user_specified_name);
@@ -900,7 +903,7 @@ fn base_type(context: &mut Context, sp!(_, bt_): H::BaseType) -> IR::Type {
         B::Apply(_, sp!(_, TN::ModuleType(m, s)), tys) => {
             let n = context.qualified_struct_name(&m, s);
             let tys = base_types(context, tys);
-            IRT::Struct(n, tys)
+            IRT::DataType(n, tys)
         }
         B::Param(TParam {
             user_specified_name,
