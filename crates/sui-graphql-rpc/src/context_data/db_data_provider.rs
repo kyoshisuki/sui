@@ -96,7 +96,7 @@ use sui_types::{
     dynamic_field::{DynamicFieldType as SuiDynamicFieldType, Field},
     event::EventID,
     governance::StakedSui,
-    Identifier, TypeTag,
+    Identifier,
 };
 
 use super::DEFAULT_PAGE_SIZE;

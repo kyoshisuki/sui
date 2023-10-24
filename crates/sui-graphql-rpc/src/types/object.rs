@@ -6,8 +6,8 @@ use sui_json_rpc::name_service::NameServiceConfig;
 
 use super::big_int::BigInt;
 use super::digest::Digest;
-use super::move_object::MoveObject;
 use super::dynamic_field::{DynamicField, DynamicFieldName};
+use super::move_object::MoveObject;
 use super::move_package::MovePackage;
 use super::{
     balance::Balance, coin::Coin, owner::Owner, stake::Stake, sui_address::SuiAddress,
