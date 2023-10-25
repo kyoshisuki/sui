@@ -13,7 +13,7 @@ use crate::{
         committee_member::CommitteeMember,
         date_time::DateTime,
         digest::Digest,
-        dynamic_field::DynamicField,
+        dynamic_field::{DynamicField, DynamicFieldName},
         end_of_epoch_data::EndOfEpochData,
         epoch::Epoch,
         event::{Event, EventFilter},
@@ -1711,6 +1711,21 @@ impl PgManager {
                 Ok(None)
             })
             .await
+    }
+
+    pub(crate) async fn fetch_dynamic_field_object(
+        &self,
+        parent_object_id: SuiAddress,
+        dynamic_field_name: DynamicFieldName
+    ) -> Result<Option<DynamicField>, Error> {
+        let DynamicFieldName { type_, bcs } = dynamic_field_name;
+
+
+        let name_bcs_value = bcs.0;
+
+        let id = sui_types::dynamic_field::derive_dynamic_field_id(
+
+        )
     }
 }
 
