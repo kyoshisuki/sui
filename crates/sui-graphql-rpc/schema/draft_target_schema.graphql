@@ -421,6 +421,16 @@ interface ObjectOwner {
     last: Int,
     before: String,
   ): NameServiceNameConnection
+
+  dynamicField(dynamicFieldName: DynamicFieldName!): DynamicField
+  dynamicFieldConnection(
+    first: Int,
+    after: String,
+    last: Int,
+    before: String,
+    # Enhancement (post-MVP) to filter dynamic fields by type.
+    filter: DynamicFieldFilter,
+  ): DynamicFieldConnection
 }
 
 # Returned by Object.owner, where we can't disambiguate between

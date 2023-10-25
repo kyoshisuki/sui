@@ -1,35 +1,51 @@
+# query for dynamic fields
 {
-  objectConnection(
-    filter: {objectIds: ["0x3b03a64214ce4b6a6ceb3ff170b5707fc6bde011b97c34507ed93c7efcd72ed3"]}
+  owner(
+    address: "0xb57fba584a700a5bcb40991e1b2e6bf68b0f3896d767a0da92e69de73de226ac"
   ) {
-    edges {
-      node {
-        dynamicFieldConnection(first: 1, filter: {nameType: "0x2::kiosk::Item"}) {
-          pageInfo {
-            hasNextPage
-            endCursor
+    dynamicFieldConnection {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        cursor
+        node {
+          id
+          value {
+            ... on MoveValue {
+              type {
+                repr
+              }
+              data
+            }
           }
-          edges {
-            cursor
-            node {
-              id
-              name {
+        }
+      }
+    }
+  }
+}
+
+# query for dynamic object fields
+{
+  owner(
+    address: "0xb57fba584a700a5bcb40991e1b2e6bf68b0f3896d767a0da92e69de73de226ac"
+  ) {
+    dynamicFieldConnection {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        cursor
+        node {
+          id
+          value {
+            ... on MoveObject {
+              contents {
+                data
                 type {
                   repr
-                }
-                data
-              }
-              value {
-                ... on MoveObject {
-                  contents {
-                    data
-                  }
-                }
-                ... on MoveValue {
-                  type {
-                    repr
-                  }
-                  data
                 }
               }
             }

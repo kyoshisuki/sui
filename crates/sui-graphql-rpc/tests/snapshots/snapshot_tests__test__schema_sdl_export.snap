@@ -17,8 +17,14 @@ type Address implements ObjectOwner {
 	The `0x3::staking_pool::StakedSui` objects owned by the given address.
 	"""
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
+<<<<<<< HEAD
 	defaultNameServiceName: String	
 	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
+=======
+	defaultNameServiceName: String
+	nameServiceConnection(first: Int, after: String, last: Int, before: String): NameServiceConnection
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String): DynamicFieldConnection
+>>>>>>> b5c188fe5c (dynfields)
 }
 
 enum AddressTransactionBlockRelationship {
@@ -264,12 +270,6 @@ type DynamicFieldEdge {
 	A cursor for use in pagination
 	"""
 	cursor: String!
-}
-
-input DynamicFieldFilter {
-	namePackage: SuiAddress
-	nameModule: String
-	nameType: String
 }
 
 input DynamicFieldName {
@@ -730,11 +730,17 @@ type Object implements ObjectOwner {
 	The `0x3::staking_pool::StakedSui` objects owned by the given object.
 	"""
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
+<<<<<<< HEAD
 	"""
 	The domain that a user address has explicitly configured as their default domain
 	"""
 	defaultNameServiceName: String	
 	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
+=======
+	defaultNameServiceName: String
+	nameServiceConnection(first: Int, after: String, last: Int, before: String): NameServiceConnection
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String): DynamicFieldConnection
+>>>>>>> b5c188fe5c (dynfields)
 }
 
 type ObjectChange {
@@ -801,8 +807,14 @@ interface ObjectOwner {
 	balanceConnection(first: Int, after: String, last: Int, before: String): BalanceConnection
 	coinConnection(first: Int, after: String, last: Int, before: String, type: String): CoinConnection
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
+<<<<<<< HEAD
 	defaultNameServiceName: String	
 	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
+=======
+	defaultNameServiceName: String
+	nameServiceConnection(first: Int, after: String, last: Int, before: String): NameServiceConnection
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String): DynamicFieldConnection
+>>>>>>> b5c188fe5c (dynfields)
 }
 
 type Owner implements ObjectOwner {
@@ -817,8 +829,14 @@ type Owner implements ObjectOwner {
 	The stake objects for the given address
 	"""
 	stakeConnection(first: Int, after: String, last: Int, before: String): StakeConnection
+<<<<<<< HEAD
 	defaultNameServiceName: String	
 	dynamicFieldConnection(first: Int, after: String, last: Int, before: String, filter: DynamicFieldFilter): DynamicFieldConnection
+=======
+	defaultNameServiceName: String
+	nameServiceConnection(first: Int, after: String, last: Int, before: String): NameServiceConnection
+	dynamicFieldConnection(first: Int, after: String, last: Int, before: String): DynamicFieldConnection
+>>>>>>> b5c188fe5c (dynfields)
 }
 
 """
@@ -1387,4 +1405,3 @@ type ValidatorSet {
 schema {
 	query: Query
 }
-

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use async_graphql::*;
+use sui_types::TypeTag;
 
 use crate::context_data::db_data_provider::PgManager;
 
@@ -26,12 +27,6 @@ impl DynamicField {
     }
 
     async fn value(&self, ctx: &Context<'_>) -> Result<Option<DynamicFieldValue>> {
-        // take the df_object_type field
-        // but still not clear how to resolve for just the field portion
-
-        // native_object.move_object.into_type().into_type_params()[1].to_string()
-        // and the bcs?
-
         let obj = ctx
             .data_unchecked::<PgManager>()
             .fetch_move_obj(self.id, None)
@@ -41,8 +36,25 @@ impl DynamicField {
         if self.is_dof {
             Ok(obj.map(DynamicFieldValue::MoveObject))
         } else if let Some(obj) = obj {
-            let move_value = obj.contents(ctx).await.extend()?;
-            Ok(move_value.map(DynamicFieldValue::MoveValue))
+            if let Some(struct_tag) = obj.native_object.data.struct_tag() {
+                let type_tag = TypeTag::Struct(Box::new(struct_tag));
+                Ok(Some(DynamicFieldValue::MoveValue(MoveValue::new(
+                    type_tag.to_string(),
+                    obj.native_object
+                        .data
+                        .try_as_move()
+                        .ok_or_else(|| {
+                            crate::error::Error::Internal(format!(
+                                "Failed to convert native object to move object: {}",
+                                obj.native_object.id()
+                            ))
+                        })?
+                        .contents()
+                        .into(),
+                ))))
+            } else {
+                Ok(None)
+            }
         } else {
             Ok(None)
         }
