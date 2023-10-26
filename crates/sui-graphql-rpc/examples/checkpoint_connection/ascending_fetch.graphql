@@ -1,0 +1,25 @@
+# Fetch some default amount of checkpoints, ascending
+{
+  checkpointConnection {
+    nodes {
+      digest
+      sequenceNumber
+      validatorSignature
+      previousCheckpointDigest
+      networkTotalTransactions
+      rollingGasSummary {
+        computationCost
+        storageCost
+        storageRebate
+        nonRefundableStorageFee
+      }
+      epoch {
+        referenceGasPrice
+        startTimestamp
+      }
+      endOfEpoch {
+        nextProtocolVersion
+      }
+    }
+  }
+}

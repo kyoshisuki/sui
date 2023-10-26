@@ -1,0 +1,18 @@
+# At a particular digest
+{
+  checkpoint(id: {
+    digest:"GaDeWEfbSQCQ8FBQHUHVdm4KjrnbgMqEZPuhStoq5njU"
+  }) {
+    digest, sequenceNumber, validatorSignature, previousCheckpointDigest, networkTotalTransactions, rollingGasSummary {
+      computationCost
+      storageCost
+      storageRebate
+      nonRefundableStorageFee
+    }, epoch {
+      referenceGasPrice
+      startTimestamp
+    }, endOfEpoch {
+      nextProtocolVersion
+    }
+  }
+}

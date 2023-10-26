@@ -11,7 +11,7 @@ use tracing::{info, warn};
 
 /// The minimum and maximum protocol versions supported by this build.
 const MIN_PROTOCOL_VERSION: u64 = 1;
-const MAX_PROTOCOL_VERSION: u64 = 29;
+const MAX_PROTOCOL_VERSION: u64 = 30;
 
 // Record history of protocol version allocations here:
 //
@@ -77,11 +77,13 @@ const MAX_PROTOCOL_VERSION: u64 = 29;
 // Version 26: New gas model version.
 //             Add support for receiving objects off of other objects in devnet only.
 // Version 28: Add sui::zklogin::verify_zklogin_id and related functions to sui framework.
+//             Enable transaction effects v2 in devnet.
 // Version 29: Add verify_legacy_zklogin_address flag to sui framework, this add ability to verify
 //             transactions from a legacy zklogin address.
-//             Enable Narwhal CertificateV2
+// Version 30: Enable Narwhal CertificateV2
 //             Add support for random beacon.
-
+//             Enable transaction effects v2 in testnet.
+//             Deprecate supported oauth providers from protocol config and rely on node config instead.
 #[derive(Copy, Clone, Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProtocolVersion(u64);
 
@@ -170,7 +172,7 @@ impl SupportedProtocolVersions {
     }
 }
 
-#[derive(Clone, Serialize, Debug, PartialEq, Copy)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Copy, PartialOrd, Ord, Eq)]
 pub enum Chain {
     Mainnet,
     Testnet,
@@ -1577,7 +1579,8 @@ impl ProtocolConfig {
                 }
                 29 => {
                     cfg.feature_flags.verify_legacy_zklogin_address = true;
-
+                }
+                30 => {
                     // Only enable nw certificate v2 on devnet.
                     if chain != Chain::Mainnet && chain != Chain::Testnet {
                         cfg.feature_flags.narwhal_certificate_v2 = true;
@@ -1589,6 +1592,15 @@ impl ProtocolConfig {
                         cfg.feature_flags.narwhal_header_v2 = true;
                         cfg.feature_flags.random_beacon = true;
                     }
+                    // Only enable effects v2 on devnet and testnet.
+                    if chain != Chain::Mainnet {
+                        cfg.feature_flags.enable_effects_v2 = true;
+                    }
+
+                    // zklogin_supported_providers config is deprecated, zklogin
+                    // signature verifier will use the fetched jwk map to determine
+                    // whether the provider is supported based on node config.
+                    cfg.feature_flags.zklogin_supported_providers = BTreeSet::default();
                 }
                 // Use this template when making changes:
                 //
@@ -1653,9 +1665,6 @@ impl ProtocolConfig {
 
     pub fn set_consensus_bad_nodes_stake_threshold(&mut self, val: u64) {
         self.consensus_bad_nodes_stake_threshold = Some(val);
-    }
-    pub fn set_zklogin_supported_providers(&mut self, list: BTreeSet<String>) {
-        self.feature_flags.zklogin_supported_providers = list
     }
     pub fn set_receive_object_for_testing(&mut self, val: bool) {
         self.feature_flags.receive_objects = val

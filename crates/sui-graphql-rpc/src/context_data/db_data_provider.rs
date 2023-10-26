@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-#![allow(dead_code)]
 use crate::{
+    config::Limits,
     error::Error,
     types::{
         address::{Address, AddressTransactionBlockRelationship},
@@ -48,24 +48,25 @@ use diesel::{
     BoolExpressionMethods, ExpressionMethods, OptionalExtension, PgConnection, QueryDsl,
     RunQueryDsl,
 };
-use move_bytecode_utils::layout::TypeLayoutBuilder;
-use move_core_types::{language_storage::StructTag, value::MoveTypeLayout};
+use move_core_types::language_storage::StructTag;
 use std::str::FromStr;
 use sui_indexer::{
+    apis::GovernanceReadApiV2,
     indexer_reader::IndexerReader,
     models_v2::{
         checkpoints::StoredCheckpoint, epoch::StoredEpochInfo, objects::StoredObject,
-        packages::StoredPackage, transactions::StoredTransaction,
+        transactions::StoredTransaction,
     },
     schema_v2::{
-        checkpoints, epochs, objects, packages, transactions, tx_calls, tx_changed_objects,
-        tx_input_objects, tx_recipients, tx_senders,
+        checkpoints, epochs, objects, transactions, tx_calls, tx_changed_objects, tx_input_objects,
+        tx_recipients, tx_senders,
     },
     PgConnectionPoolConfig,
 };
 use sui_json_rpc::name_service::{Domain, NameRecord, NameServiceConfig};
 use sui_json_rpc_types::{
-    EventFilter as RpcEventFilter, ProtocolConfigResponse, SuiTransactionBlockEffects,
+    EventFilter as RpcEventFilter, ProtocolConfigResponse, Stake as SuiStake,
+    SuiTransactionBlockEffects,
 };
 use sui_protocol_config::{ProtocolConfig, ProtocolVersion};
 use sui_sdk::types::{
@@ -75,8 +76,7 @@ use sui_sdk::types::{
     messages_checkpoint::{
         CheckpointCommitment, CheckpointDigest, EndOfEpochData as NativeEndOfEpochData,
     },
-    move_package::MovePackage as SuiMovePackage,
-    object::{Data, Object as SuiObject},
+    object::Object as SuiObject,
     sui_system_state::sui_system_state_summary::{
         SuiSystemStateSummary as NativeSuiSystemStateSummary, SuiValidatorSummary,
     },
@@ -84,7 +84,7 @@ use sui_sdk::types::{
         GenesisObject, SenderSignedData, TransactionDataAPI, TransactionExpiration, TransactionKind,
     },
 };
-use sui_types::{base_types::MoveObjectType, governance::StakedSui, TypeTag};
+use sui_types::{base_types::MoveObjectType, governance::StakedSui};
 use sui_types::{
     base_types::ObjectID, digests::TransactionDigest, dynamic_field::Field, event::EventID,
     Identifier,
@@ -118,20 +118,20 @@ pub enum DbValidationError {
 
 pub(crate) struct PgManager {
     pub inner: IndexerReader,
+    pub _limits: Limits,
 }
 
 impl PgManager {
-    pub(crate) fn new<T: Into<String>>(
-        db_url: T,
-        config: Option<PgConnectionPoolConfig>,
-    ) -> Result<Self, Error> {
-        // TODO (wlmyng): support config
-        let mut config = config.unwrap_or_default();
-        config.set_pool_size(30);
-        let inner = IndexerReader::new_with_config(db_url, config)
-            .map_err(|e| Error::Internal(e.to_string()))?;
+    pub(crate) fn new(inner: IndexerReader, _limits: Limits) -> Self {
+        Self { inner, _limits }
+    }
 
-        Ok(Self { inner })
+    /// Create a new underlying reader, which is used by this type as well as other data providers.
+    pub(crate) fn reader(db_url: impl Into<String>) -> Result<IndexerReader, Error> {
+        let mut config = PgConnectionPoolConfig::default();
+        config.set_pool_size(30);
+        IndexerReader::new_with_config(db_url, config)
+            .map_err(|e| Error::Internal(format!("Failed to create reader: {e}")))
     }
 
     pub async fn run_query_async<T, E, F>(&self, query: F) -> Result<T, Error>
@@ -173,24 +173,6 @@ impl PgManager {
 
         self.run_query_async(|conn| query.get_result::<StoredObject>(conn).optional())
             .await
-    }
-
-    /// TODO: cache modules/packages
-    async fn get_package(&self, address: Vec<u8>) -> Result<Option<StoredPackage>, Error> {
-        let mut query = packages::dsl::packages.into_boxed();
-        query = query.filter(packages::dsl::package_id.eq(address));
-
-        self.run_query_async(|conn| query.get_result::<StoredPackage>(conn).optional())
-            .await
-    }
-
-    pub async fn fetch_native_package(&self, package_id: Vec<u8>) -> Result<SuiMovePackage, Error> {
-        let package = self
-            .get_package(package_id)
-            .await?
-            .ok_or_else(|| Error::Internal("Package not found".to_string()))?;
-
-        bcs::from_bytes(&package.move_package).map_err(|e| Error::Internal(e.to_string()))
     }
 
     pub async fn get_epoch(&self, epoch_id: Option<i64>) -> Result<Option<StoredEpochInfo>, Error> {
@@ -640,19 +622,6 @@ impl PgManager {
 
 /// Implement methods to be used by graphql resolvers
 impl PgManager {
-    pub(crate) async fn build_with_types_in_blocking_task(
-        &self,
-        type_tag: TypeTag,
-    ) -> Result<MoveTypeLayout, Error> {
-        self.inner
-            .spawn_blocking(move |this| {
-                TypeLayoutBuilder::build_with_types(&type_tag, &this).map_err(|e| {
-                    Error::Internal(format!("Failed to build layout from type tag: {e}"))
-                })
-            })
-            .await
-    }
-
     pub(crate) fn parse_tx_cursor(&self, cursor: &str) -> Result<i64, Error> {
         let tx_sequence_number = cursor
             .parse::<i64>()
@@ -895,6 +864,7 @@ impl PgManager {
         }))
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn fetch_owner(
         &self,
         address: SuiAddress,
@@ -1248,43 +1218,45 @@ impl PgManager {
             object_ids: None,
             object_keys: None,
         };
-        let system_state = self.fetch_latest_sui_system_state().await?;
-        let current_epoch_id = system_state.epoch_id;
+
         let objs = self
             .multi_get_objs(first, after, last, before, Some(obj_filter))
             .await?;
 
         if let Some((stored_objs, has_next_page)) = objs {
             let mut connection = Connection::new(false, has_next_page);
-
             let mut edges = vec![];
+            let governance_api = GovernanceReadApiV2::new(self.inner.clone());
 
-            for stored_obj in stored_objs {
-                let object = sui_types::object::Object::try_from(stored_obj).map_err(|_| {
-                    Error::Internal("Error converting from StoredObject to Object".to_string())
-                })?;
-                let stake_object = StakedSui::try_from(&object).map_err(|_| {
-                    Error::Internal("Error converting from Object to StakedSui".to_string())
-                })?;
+            // convert the stored objects into staked sui type
+            let stakes = stored_objs
+                .into_iter()
+                .flat_map(|stored_obj| {
+                    let object = sui_types::object::Object::try_from(stored_obj)
+                        .map_err(|_| eprintln!("Error converting from StoredObject to Object"))
+                        .ok()?;
+                    let stake_object = StakedSui::try_from(&object)
+                        .map_err(|_| eprintln!("Error converting from Object to StakedSui"))
+                        .ok()?;
+                    Some(stake_object)
+                })
+                .collect::<Vec<_>>();
 
-                // TODO this only does active / pending stake status, but not unstaked,
-                // unstaked does not really make sense here, fullnode tracks deleted objects
-                let status = if current_epoch_id >= stake_object.activation_epoch() {
-                    StakeStatus::Active
-                } else {
-                    StakeStatus::Pending
-                };
-                let stake = Stake {
-                    id: ID(stake_object.id().to_string()),
-                    active_epoch_id: Some(stake_object.activation_epoch()),
-                    estimated_reward: None, // TODO once we have a good working governance API, we should fix this
-                    principal: Some(BigInt::from(stake_object.principal())),
-                    request_epoch_id: Some(stake_object.activation_epoch().saturating_sub(1)),
-                    status: Some(status),
-                    staked_sui_id: stake_object.id(),
-                };
+            // retrieve the delegated stakes
+            // at the first invocation, it will likely fail because data is not cached
+            let delegated_stakes = governance_api
+                .get_delegated_stakes(stakes)
+                .await
+                .map_err(|e| Error::Internal(format!("Error fetching delegated stakes. {e}")))?;
 
-                let cursor = stake.staked_sui_id.to_string();
+            let stakes = delegated_stakes
+                .into_iter()
+                .flat_map(|x| x.stakes)
+                .collect::<Vec<_>>();
+
+            for stk in stakes {
+                let cursor = stk.staked_sui_id.to_string();
+                let stake = Stake::from(stk);
                 edges.push(Edge::new(cursor, stake));
             }
             connection.edges.extend(edges);
@@ -1565,14 +1537,10 @@ impl TryFrom<StoredObject> for Object {
             ));
         }
 
-        let bcs = match object.data {
-            // Do we BCS serialize packages?
-            Data::Package(package) => Base64::from(
-                bcs::to_bytes(&package)
-                    .map_err(|e| Error::Internal(format!("Failed to serialize package: {e}")))?,
-            ),
-            Data::Move(move_object) => Base64::from(&move_object.into_contents()),
-        };
+        let bcs = Base64::from(
+            bcs::to_bytes(&object)
+                .map_err(|e| Error::Internal(format!("Failed to serialize object: {e}")))?,
+        );
 
         Ok(Self {
             address: SuiAddress::from_array(***object_id),
@@ -1795,6 +1763,30 @@ impl TryFrom<StoredObject> for Coin {
             balance,
             move_obj: MoveObject { native_object },
         })
+    }
+}
+
+impl From<SuiStake> for Stake {
+    fn from(value: SuiStake) -> Self {
+        let mut reward = None;
+        let status = match value.status {
+            sui_json_rpc_types::StakeStatus::Pending => StakeStatus::Pending,
+            sui_json_rpc_types::StakeStatus::Active { estimated_reward } => {
+                reward = Some(estimated_reward.into());
+                StakeStatus::Active
+            }
+            sui_json_rpc_types::StakeStatus::Unstaked => StakeStatus::Unstaked,
+        };
+
+        Stake {
+            id: ID(value.staked_sui_id.to_string()),
+            active_epoch_id: Some(value.stake_active_epoch),
+            estimated_reward: reward,
+            principal: Some(value.principal.into()),
+            request_epoch_id: Some(value.stake_request_epoch),
+            status: Some(status),
+            staked_sui_id: value.staked_sui_id,
+        }
     }
 }
 
