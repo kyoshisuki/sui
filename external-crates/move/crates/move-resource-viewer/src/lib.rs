@@ -15,11 +15,12 @@ use move_binary_format::{
 use move_bytecode_utils::layout::TypeLayoutBuilder;
 use move_core_types::{
     account_address::AccountAddress,
+    annotated_value as A,
     identifier::{IdentStr, Identifier},
     language_storage::{ModuleId, StructTag, TypeTag},
     resolver::MoveResolver,
+    runtime_value::{MoveStruct, MoveValue},
     u256,
-    value::{MoveStruct, MoveTypeLayout, MoveValue},
     vm_status::VMStatus,
 };
 use move_proc_macros::test_variant_order;
@@ -100,15 +101,7 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
         self.cache.get_module_by_id_or_err(module)
     }
 
-    pub fn get_type_layout_runtime(&self, type_tag: &TypeTag) -> Result<MoveTypeLayout> {
-        TypeLayoutBuilder::build_runtime(type_tag, &self.cache)
-    }
-
-    pub fn get_type_layout_with_fields(&self, type_tag: &TypeTag) -> Result<MoveTypeLayout> {
-        TypeLayoutBuilder::build_with_fields(type_tag, &self.cache)
-    }
-
-    pub fn get_type_layout_with_types(&self, type_tag: &TypeTag) -> Result<MoveTypeLayout> {
+    pub fn get_type_layout_with_types(&self, type_tag: &TypeTag) -> Result<A::MoveTypeLayout> {
         TypeLayoutBuilder::build_with_types(type_tag, &self.cache)
     }
 
@@ -166,15 +159,13 @@ impl<'a, T: MoveResolver + ?Sized> MoveValueAnnotator<'a, T> {
     ) -> Result<Vec<(Identifier, MoveValue)>> {
         let ty = self.cache.resolve_struct(tag)?;
         let struct_def = (&ty).try_into().map_err(into_vm_status)?;
-        Ok(match MoveStruct::simple_deserialize(blob, &struct_def)? {
-            MoveStruct::Runtime(runtime) => self
-                .cache
-                .get_field_names(&ty)?
-                .into_iter()
-                .zip(runtime)
-                .collect(),
-            MoveStruct::WithFields(fields) | MoveStruct::WithTypes { fields, .. } => fields,
-        })
+        let s = MoveStruct::simple_deserialize(blob, &struct_def)?;
+        Ok(self
+            .cache
+            .get_field_names(&ty)?
+            .into_iter()
+            .zip(s.0)
+            .collect())
     }
 
     pub fn view_value(&self, ty_tag: &TypeTag, blob: &[u8]) -> Result<AnnotatedMoveValue> {

@@ -26,7 +26,7 @@ use move_core_types::{
     account_address::AccountAddress,
     effects::{ChangeSet, Op},
     identifier::IdentStr,
-    value::serialize_values,
+    runtime_value::serialize_values,
     vm_status::StatusCode,
 };
 use move_model::{

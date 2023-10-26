@@ -11,7 +11,7 @@ use move_core_types::{
     account_address::AccountAddress,
     identifier::Identifier,
     language_storage::{StructTag, TypeTag},
-    value::{MoveStructLayout, MoveTypeLayout},
+    runtime_value::{MoveStructLayout, MoveTypeLayout},
     vm_status::StatusCode,
 };
 use move_proc_macros::test_variant_order;
