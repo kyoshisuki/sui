@@ -1,19 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    borrow::Cow,
-    collections::BTreeMap,
-    num::NonZeroUsize,
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Cow, collections::BTreeMap};
 
-use async_trait::async_trait;
-use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
-use lru::LruCache;
+use crate::cache::PackageCache;
+use crate::error::Error;
 use move_binary_format::{
     access::ModuleAccess,
-    errors::{Location, VMError},
     file_format::{
         SignatureToken, StructDefinitionIndex, StructFieldInformation, StructHandleIndex,
         TableIndex,
@@ -25,82 +18,18 @@ use move_core_types::{
     language_storage::{StructTag, TypeTag},
     value::{MoveFieldLayout, MoveStructLayout, MoveTypeLayout},
 };
-use sui_indexer::{
-    errors::IndexerError as DbError, indexer_reader::IndexerReader, schema_v2::objects,
-};
-use sui_types::{
-    base_types::SequenceNumber, is_system_package, move_package::TypeOrigin, object::Object,
-    Identifier,
-};
-use thiserror::Error;
+use sui_types::{base_types::SequenceNumber, Identifier};
+
+pub mod cache;
+mod error;
+pub mod store;
 
 // TODO Move to ServiceConfig
-const PACKAGE_CACHE_SIZE: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1024) };
-
-/// Cache to answer queries that depend on information from move packages: listing a package's
-/// modules, a module's structs and functions, the definitions or layouts of types, etc.
-///
-/// Queries that cannot be answered by the cache are served by loading the relevant package as an
-/// object and parsing its contents.
-pub(crate) struct PackageCache {
-    packages: Mutex<LruCache<AccountAddress, Arc<Package>>>,
-    store: Box<dyn PackageStore + Send + Sync>,
-}
-
-struct DbPackageStore(IndexerReader);
-
-#[derive(Error, Debug)]
-pub(crate) enum Error {
-    #[error("{0}")]
-    Bcs(#[from] bcs::Error),
-
-    #[error("{0}")]
-    Db(#[from] DbError),
-
-    #[error("{0}")]
-    Deserialize(VMError),
-
-    #[error("Package has no modules: {0}")]
-    EmptyPackage(AccountAddress),
-
-    #[error("Linkage not found for package: {0}")]
-    LinkageNotFound(AccountAddress),
-
-    #[error("Module not found: {0}::{1}")]
-    ModuleNotFound(AccountAddress, String),
-
-    #[error("No origin package found for {0}::{1}::{2}")]
-    NoTypeOrigin(AccountAddress, String, String),
-
-    #[error("Not a package: {0}")]
-    NotAPackage(AccountAddress),
-
-    #[error("Not an identifier: '{0}'")]
-    NotAnIdentifier(String),
-
-    #[error("Package not found: {0}")]
-    PackageNotFound(AccountAddress),
-
-    #[error("Struct not found: {0}::{1}::{2}")]
-    StructNotFound(AccountAddress, String, String),
-
-    #[error("Expected {0} type parameters, but got {1}")]
-    TypeArityMismatch(u16, usize),
-
-    #[error("Type Parameter {0} out of bounds ({1})")]
-    TypeParamOOB(u16, usize),
-
-    #[error("Unexpected reference type.")]
-    UnexpectedReference,
-
-    #[error("Unexpected type: 'signer'.")]
-    UnexpectedSigner,
-}
 
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug)]
-struct Package {
+pub struct Package {
     /// The ID this package was loaded from on-chain.
     storage_id: AccountAddress,
 
@@ -180,84 +109,6 @@ enum OpenSignature {
 struct ResolutionContext {
     /// Definitions (field information) for structs referred to by types added to this context.
     structs: BTreeMap<StructKey, StructDef>,
-}
-
-/// Interface to abstract over access to a store of live packages.  Used to override the default
-/// store during testing.
-#[async_trait]
-trait PackageStore {
-    /// Latest version of the object at `id`.
-    async fn version(&self, id: AccountAddress) -> Result<SequenceNumber>;
-
-    /// Read package contents.  Fails if `id` is not an object, not a package, or is malformed in
-    /// some way.
-    async fn fetch(&self, id: AccountAddress) -> Result<Package>;
-}
-
-impl PackageCache {
-    pub(crate) fn new(reader: IndexerReader) -> Self {
-        Self::with_store(Box::new(DbPackageStore(reader)))
-    }
-
-    fn with_store(store: Box<dyn PackageStore + Send + Sync>) -> Self {
-        let packages = Mutex::new(LruCache::new(PACKAGE_CACHE_SIZE));
-        Self { packages, store }
-    }
-
-    /// Return the type layout corresponding to the given type tag.  The layout always refers to
-    /// structs in terms of their defining ID (i.e. their package ID always points to the first
-    /// package that introduced them).
-    pub(crate) async fn type_layout(&self, mut tag: TypeTag) -> Result<MoveTypeLayout> {
-        let mut context = ResolutionContext::default();
-
-        // (1). Fetch all the information from this cache that is necessary to resolve types
-        // referenced by this tag.
-        context.add_type_tag(&mut tag, self).await?;
-
-        // (2). Use that information to resolve the tag into a layout.
-        context.resolve_type_tag(&tag)
-    }
-
-    /// Return a deserialized representation of the package with ObjectID `id` on-chain.  Attempts
-    /// to fetch this package from the cache, and if that fails, fetches it from the underlying data
-    /// source and updates the cache.
-    async fn package(&self, id: AccountAddress) -> Result<Arc<Package>> {
-        let candidate = {
-            // Release the lock after getting the package
-            let mut packages = self.packages.lock().unwrap();
-            packages.get(&id).map(Arc::clone)
-        };
-
-        // System packages can be invalidated in the cache if a newer version exists.
-        match candidate {
-            Some(package) if !is_system_package(id) => return Ok(package),
-            Some(package) if self.store.version(id).await? <= package.version => {
-                return Ok(package)
-            }
-            Some(_) | None => { /* nop */ }
-        }
-
-        let package = Arc::new(self.store.fetch(id).await?);
-
-        // Try and insert the package into the cache, accounting for races.  In most cases the
-        // racing fetches will produce the same package, but for system packages, they may not, so
-        // favour the package that has the newer version, or if they are the same, the package that
-        // is already in the cache.
-
-        let mut packages = self.packages.lock().unwrap();
-        Ok(match packages.peek(&id) {
-            Some(prev) if package.version <= prev.version => {
-                let package = prev.clone();
-                packages.promote(&id);
-                package
-            }
-
-            Some(_) | None => {
-                packages.push(id, package.clone());
-                package
-            }
-        })
-    }
 }
 
 impl Package {
@@ -664,96 +515,6 @@ impl ResolutionContext {
     }
 }
 
-#[async_trait]
-impl PackageStore for DbPackageStore {
-    async fn version(&self, id: AccountAddress) -> Result<SequenceNumber> {
-        let query = objects::dsl::objects
-            .select(objects::dsl::object_version)
-            .filter(objects::dsl::object_id.eq(id.to_vec()));
-
-        let Some(version) = self
-            .0
-            .run_query_async(move |conn| query.get_result::<i64>(conn).optional())
-            .await?
-        else {
-            return Err(Error::PackageNotFound(id));
-        };
-
-        Ok(SequenceNumber::from_u64(version as u64))
-    }
-
-    async fn fetch(&self, id: AccountAddress) -> Result<Package> {
-        let query = objects::dsl::objects
-            .select((
-                objects::dsl::object_version,
-                objects::dsl::serialized_object,
-            ))
-            .filter(objects::dsl::object_id.eq(id.to_vec()));
-
-        let Some((version, bcs)) = self
-            .0
-            .run_query_async(move |conn| query.get_result::<(i64, Vec<u8>)>(conn).optional())
-            .await?
-        else {
-            return Err(Error::PackageNotFound(id));
-        };
-
-        let version = SequenceNumber::from_u64(version as u64);
-        let object = bcs::from_bytes::<Object>(&bcs)?;
-
-        let Some(package) = object.data.try_as_package() else {
-            return Err(Error::NotAPackage(id));
-        };
-
-        let mut type_origins: BTreeMap<String, BTreeMap<String, AccountAddress>> = BTreeMap::new();
-        for TypeOrigin {
-            module_name,
-            struct_name,
-            package,
-        } in package.type_origin_table()
-        {
-            type_origins
-                .entry(module_name.to_string())
-                .or_default()
-                .insert(struct_name.to_string(), AccountAddress::from(*package));
-        }
-
-        let mut runtime_id = None;
-        let mut modules = BTreeMap::new();
-        for (name, bytes) in package.serialized_module_map() {
-            let origins = type_origins.remove(name).unwrap_or_default();
-            let bytecode = CompiledModule::deserialize_with_defaults(bytes)
-                .map_err(|e| Error::Deserialize(e.finish(Location::Undefined)))?;
-
-            runtime_id = Some(*bytecode.address());
-
-            let name = name.clone();
-            match Module::read(bytecode, origins) {
-                Ok(module) => modules.insert(name, module),
-                Err(struct_) => return Err(Error::NoTypeOrigin(id, name, struct_)),
-            };
-        }
-
-        let Some(runtime_id) = runtime_id else {
-            return Err(Error::EmptyPackage(id));
-        };
-
-        let linkage = package
-            .linkage_table()
-            .iter()
-            .map(|(&dep, linkage)| (dep.into(), linkage.upgraded_id.into()))
-            .collect();
-
-        Ok(Package {
-            storage_id: id,
-            runtime_id,
-            version,
-            modules,
-            linkage,
-        })
-    }
-}
-
 impl<'s> From<&'s StructTag> for StructRef<'s, 's> {
     fn from(tag: &'s StructTag) -> Self {
         StructRef {
@@ -771,11 +532,15 @@ fn ident(s: &str) -> Result<Identifier> {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+    use std::sync::Arc;
     use std::{path::PathBuf, str::FromStr, sync::RwLock};
 
+    use crate::store::PackageStore;
     use expect_test::expect;
     use move_compiler::compiled_unit::{CompiledUnitEnum, NamedCompiledModule};
     use sui_move_build::{BuildConfig, CompiledPackage};
+    use sui_types::object::Object;
 
     use super::*;
 
@@ -1335,6 +1100,10 @@ mod tests {
                 .get(&id)
                 .cloned()
                 .ok_or_else(|| Error::PackageNotFound(id))
+        }
+
+        async fn update(&self, _object: &Object) -> Result<()> {
+            unimplemented!()
         }
     }
 

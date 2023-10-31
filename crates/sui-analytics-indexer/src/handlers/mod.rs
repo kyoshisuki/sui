@@ -3,9 +3,12 @@
 
 use std::collections::BTreeSet;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use move_core_types::language_storage::{StructTag, TypeTag};
+use move_core_types::value::{MoveStruct, MoveTypeLayout};
 
 use sui_indexer::framework::Handler;
+use sui_package_resolver::cache::PackageCache;
 use sui_types::base_types::ObjectID;
 use sui_types::effects::TransactionEffects;
 use sui_types::effects::TransactionEffectsAPI;
@@ -152,4 +155,21 @@ impl ObjectStatusTracker {
             None
         }
     }
+}
+
+async fn get_move_struct(
+    struct_tag: &StructTag,
+    contents: &[u8],
+    package_cache: &PackageCache,
+) -> Result<MoveStruct> {
+    let move_struct = match package_cache
+        .type_layout(TypeTag::Struct(Box::new(struct_tag.clone())))
+        .await?
+    {
+        MoveTypeLayout::Struct(move_struct_layout) => {
+            MoveStruct::simple_deserialize(contents, &move_struct_layout)
+        }
+        _ => Err(anyhow!("Object is not a move struct")),
+    }?;
+    Ok(move_struct)
 }

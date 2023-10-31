@@ -1,0 +1,59 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+use move_binary_format::errors::VMError;
+use move_core_types::account_address::AccountAddress;
+use sui_indexer::errors::IndexerError as DbError;
+use thiserror::Error;
+use typed_store::TypedStoreError;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("{0}")]
+    Bcs(#[from] bcs::Error),
+
+    #[error("{0}")]
+    Db(#[from] DbError),
+
+    #[error("{0}")]
+    TypedStore(#[from] TypedStoreError),
+
+    #[error("{0}")]
+    Deserialize(VMError),
+
+    #[error("Package has no modules: {0}")]
+    EmptyPackage(AccountAddress),
+
+    #[error("Linkage not found for package: {0}")]
+    LinkageNotFound(AccountAddress),
+
+    #[error("Module not found: {0}::{1}")]
+    ModuleNotFound(AccountAddress, String),
+
+    #[error("No origin package found for {0}::{1}::{2}")]
+    NoTypeOrigin(AccountAddress, String, String),
+
+    #[error("Not a package: {0}")]
+    NotAPackage(AccountAddress),
+
+    #[error("Not an identifier: '{0}'")]
+    NotAnIdentifier(String),
+
+    #[error("Package not found: {0}")]
+    PackageNotFound(AccountAddress),
+
+    #[error("Struct not found: {0}::{1}::{2}")]
+    StructNotFound(AccountAddress, String, String),
+
+    #[error("Expected {0} type parameters, but got {1}")]
+    TypeArityMismatch(u16, usize),
+
+    #[error("Type Parameter {0} out of bounds ({1})")]
+    TypeParamOOB(u16, usize),
+
+    #[error("Unexpected reference type.")]
+    UnexpectedReference,
+
+    #[error("Unexpected type: 'signer'.")]
+    UnexpectedSigner,
+}
