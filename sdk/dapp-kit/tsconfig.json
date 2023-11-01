@@ -2,11 +2,11 @@
 	"extends": "../build-scripts/tsconfig.shared.json",
 	"include": ["src"],
 	"compilerOptions": {
-		"module": "CommonJS",
 		"outDir": "dist/cjs",
 		"isolatedModules": true,
 		"jsx": "react-jsx",
-		"rootDir": "src"
+		"rootDir": "src",
+		"moduleResolution": "Bundler"
 	},
 	"references": [{ "path": "../typescript" }, { "path": "../wallet-standard" }]
 }
