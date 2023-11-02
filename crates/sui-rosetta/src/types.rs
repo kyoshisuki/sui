@@ -407,6 +407,7 @@ pub enum OperationType {
     ConsensusCommitPrologue,
     ProgrammableTransaction,
     AuthenticatorStateUpdate,
+    RandomnessStateUpdate,
     EndOfEpochTransaction,
 }
 
@@ -423,6 +424,9 @@ impl From<&SuiTransactionBlockKind> for OperationType {
             }
             SuiTransactionBlockKind::AuthenticatorStateUpdate(_) => {
                 OperationType::AuthenticatorStateUpdate
+            }
+            SuiTransactionBlockKind::RandomnessStateUpdate(_) => {
+                OperationType::RandomnessStateUpdate
             }
             SuiTransactionBlockKind::EndOfEpochTransaction(_) => {
                 OperationType::EndOfEpochTransaction

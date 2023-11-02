@@ -25,6 +25,7 @@ pub(crate) trait ConsensusOutputAPI: Hash<DIGEST_SIZE> {
     fn commit_sub_dag_index(&self) -> u64;
 
     /// Returns all transactions in the commit.
+    /// TODO-DNS add randomness state updates to sequenced output here
     fn into_transactions(self) -> ConsensusOutputTransactions;
 }
 
