@@ -443,7 +443,7 @@ impl fmt::Display for ConsensusOutputDigest {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Certificate, Header, HeaderV1Builder};
+    use crate::{Certificate, Header, HeaderV2Builder};
     use crate::{CommittedSubDag, ReputationScores};
     use config::AuthorityIdentifier;
     use indexmap::IndexMap;
@@ -456,7 +456,7 @@ mod tests {
         let fixture = CommitteeFixture::builder().build();
         let committee = fixture.committee();
 
-        let header_builder = HeaderV1Builder::default();
+        let header_builder = HeaderV2Builder::default();
         let header = header_builder
             .author(AuthorityIdentifier(1u16))
             .round(2)
@@ -470,7 +470,7 @@ mod tests {
         let certificate = Certificate::new_unsigned(
             &latest_protocol_version(),
             &committee,
-            Header::V1(header),
+            Header::V2(header),
             Vec::new(),
         )
         .unwrap();
@@ -497,7 +497,7 @@ mod tests {
         let fixture = CommitteeFixture::builder().build();
         let committee = fixture.committee();
 
-        let header_builder = HeaderV1Builder::default();
+        let header_builder = HeaderV2Builder::default();
         let header = header_builder
             .author(AuthorityIdentifier(1u16))
             .round(2)
@@ -511,7 +511,7 @@ mod tests {
         let certificate = Certificate::new_unsigned(
             &latest_protocol_version(),
             &committee,
-            Header::V1(header),
+            Header::V2(header),
             Vec::new(),
         )
         .unwrap();
@@ -529,7 +529,7 @@ mod tests {
         assert_eq!(sub_dag_round_2.commit_timestamp, newer_timestamp);
 
         // Now create the leader of round 4 with the older timestamp
-        let header_builder = HeaderV1Builder::default();
+        let header_builder = HeaderV2Builder::default();
         let header = header_builder
             .author(AuthorityIdentifier(1u16))
             .round(4)
@@ -543,7 +543,7 @@ mod tests {
         let certificate = Certificate::new_unsigned(
             &latest_protocol_version(),
             &committee,
-            Header::V1(header),
+            Header::V2(header),
             Vec::new(),
         )
         .unwrap();

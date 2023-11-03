@@ -654,7 +654,7 @@ mod tests {
     use narwhal_config::AuthorityIdentifier;
     use narwhal_test_utils::latest_protocol_version;
     use narwhal_types::{
-        Batch, Certificate, CommittedSubDag, Header, HeaderV1Builder, ReputationScores,
+        Batch, Certificate, CommittedSubDag, Header, HeaderV2Builder, ReputationScores,
     };
     use prometheus::Registry;
     use shared_crypto::intent::Intent;
@@ -725,7 +725,7 @@ mod tests {
             batches.push(vec![batch.clone()]);
 
             // AND make batch as part of a commit
-            let header = HeaderV1Builder::default()
+            let header = HeaderV2Builder::default()
                 .author(AuthorityIdentifier(0))
                 .round(5)
                 .epoch(0)
@@ -737,7 +737,7 @@ mod tests {
             let certificate = Certificate::new_unsigned(
                 latest_protocol_config,
                 &committee,
-                Header::V1(header),
+                Header::V2(header),
                 vec![],
             )
             .unwrap();
