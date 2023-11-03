@@ -575,6 +575,7 @@ impl SuiNode {
             config.authority_store_pruning_config,
             genesis.objects(),
             &db_checkpoint_config,
+            config.state_snapshot_write_config.clone(),
             config.expensive_safety_check_config.clone(),
             config.transaction_deny_config.clone(),
             config.certificate_deny_config.clone(),
@@ -828,15 +829,19 @@ impl SuiNode {
             config.db_checkpoint_config.clone()
         };
 
-        match db_checkpoint_config
-            .checkpoint_path
-            .as_ref()
-            .zip(db_checkpoint_config.object_store_config.as_ref())
-        {
-            Some((path, object_store_config)) => {
+        match (
+            db_checkpoint_config.object_store_config.as_ref(),
+            state_snapshot_enabled,
+        ) {
+            // If db checkpoint config object store not specified but
+            // state snapshot object store is specified, create handler
+            // anyway for marking db checkpoints as completed so that they
+            // can be uploaded as state snapshots.
+            (None, false) => Ok((db_checkpoint_config, None)),
+            (_, _) => {
                 let handler = DBCheckpointHandler::new(
-                    path,
-                    object_store_config,
+                    &db_checkpoint_config.checkpoint_path.clone().unwrap(),
+                    db_checkpoint_config.object_store_config.as_ref(),
                     60,
                     db_checkpoint_config
                         .prune_and_compact_before_upload
@@ -851,7 +856,6 @@ impl SuiNode {
                     Some(DBCheckpointHandler::start(handler)),
                 ))
             }
-            None => Ok((db_checkpoint_config, None)),
         }
     }
 

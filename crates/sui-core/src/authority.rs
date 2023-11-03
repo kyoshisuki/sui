@@ -39,7 +39,7 @@ use std::{
     sync::Arc,
     thread, vec,
 };
-use sui_config::node::{OverloadThresholdConfig, StateDebugDumpConfig};
+use sui_config::node::{OverloadThresholdConfig, StateDebugDumpConfig, StateSnapshotConfig};
 use sui_config::NodeConfig;
 use sui_types::execution::DynamicallyLoadedObjectMetadata;
 use tap::{TapFallible, TapOptional};
@@ -639,8 +639,10 @@ pub struct AuthorityState {
     _pruner: AuthorityStorePruner,
     _authority_per_epoch_pruner: AuthorityPerEpochStorePruner,
 
-    /// Take db checkpoints af different dbs
+    /// Take db checkpoints of different dbs
     db_checkpoint_config: DBCheckpointConfig,
+
+    state_snapshot_config: StateSnapshotConfig,
 
     /// Config controlling what kind of expensive safety checks to perform.
     expensive_safety_check_config: ExpensiveSafetyCheckConfig,
@@ -2051,6 +2053,7 @@ impl AuthorityState {
         pruning_config: AuthorityStorePruningConfig,
         genesis_objects: &[Object],
         db_checkpoint_config: &DBCheckpointConfig,
+        state_snapshot_config: StateSnapshotConfig,
         expensive_safety_check_config: ExpensiveSafetyCheckConfig,
         transaction_deny_config: TransactionDenyConfig,
         certificate_deny_config: CertificateDenyConfig,
@@ -2098,6 +2101,7 @@ impl AuthorityState {
             _pruner,
             _authority_per_epoch_pruner,
             db_checkpoint_config: db_checkpoint_config.clone(),
+            state_snapshot_config,
             expensive_safety_check_config,
             transaction_deny_config,
             certificate_deny_config,
@@ -2259,6 +2263,7 @@ impl AuthorityState {
             if self
                 .db_checkpoint_config
                 .perform_db_checkpoints_at_epoch_end
+                || self.state_snapshot_config.object_store_config.is_some()
             {
                 let checkpoint_indexes = self
                     .db_checkpoint_config

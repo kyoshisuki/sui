@@ -19,6 +19,7 @@ use sui_config::certificate_deny_config::CertificateDenyConfig;
 use sui_config::genesis::Genesis;
 use sui_config::node::{
     AuthorityStorePruningConfig, DBCheckpointConfig, ExpensiveSafetyCheckConfig,
+    StateSnapshotConfig,
 };
 use sui_config::node::{OverloadThresholdConfig, StateDebugDumpConfig};
 use sui_config::transaction_deny_config::TransactionDenyConfig;
@@ -260,6 +261,7 @@ impl<'a> TestAuthorityBuilder<'a> {
             AuthorityStorePruningConfig::default(),
             genesis.objects(),
             &DBCheckpointConfig::default(),
+            StateSnapshotConfig::default(),
             ExpensiveSafetyCheckConfig::new_enable_all(),
             transaction_deny_config,
             certificate_deny_config,
