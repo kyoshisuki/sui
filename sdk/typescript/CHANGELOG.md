@@ -1,5 +1,11 @@
 # @mysten/sui.js
 
+## 0.45.2
+
+### Patch Changes
+
+- 3718a230b: Adds `txb.pure.id()` to pass ID pure values more intuitively
+
 ## 0.45.1
 
 ### Patch Changes

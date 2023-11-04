@@ -1,5 +1,13 @@
 # @mysten/kiosk
 
+## 0.7.9
+
+### Patch Changes
+
+- 3718a230b: Adds `txb.pure.id()` to pass ID pure values more intuitively
+- Updated dependencies [3718a230b]
+  - @mysten/sui.js@0.45.2
+
 ## 0.7.8
 
 ### Patch Changes
